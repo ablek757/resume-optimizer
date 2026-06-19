@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  credits            Int      @default(0)
+  subscriptionEndsAt DateTime?
+  dailyFreeUses      Int      @default(0)
+  lastFreeUseDate    String?  // YYYY-MM-DD
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model RedemptionCode {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  type           String         // "credits" | "subscription_days"
+  value          Int            // number of credits or days
+  usedBy         String?        // user id
+  usedAt         DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  paymentOrders  PaymentOrder[]
+}
+
+model PaymentOrder {
+  id                String          @id @default(cuid())
+  userId            String
+  amount            Float?          // 识别到的支付金额
+  packageName       String?         // 匹配到的套餐名称
+  packageType       String?         // "credits" | "subscription_days"
+  packageValue      Int?            // 套餐对应的数值
+  screenshot        String          // 付款截图 base64
+  recognizedText    String?         // AI 识别出的原始文字
+  status            String          // pending / approved / rejected
+  redemptionCodeId  String?         // 发放的兑换码 ID
+  redemptionCode    RedemptionCode? @relation(fields: [redemptionCodeId], references: [id])
+  notes             String?         // 备注/失败原因
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}

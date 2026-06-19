@@ -4,6 +4,13 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import MarkdownRenderer from '@/components/markdown-renderer';
 import AuthModal from '@/components/auth-modal';
 import { Package, DEFAULT_PACKAGES } from '@/lib/payment';
+import { copyToClipboard, downloadMarkdown, exportToWord, exportToPDF } from '@/lib/export';
+import Hero from '@/components/landing/hero';
+import Features from '@/components/landing/features';
+import Steps from '@/components/landing/steps';
+import Pricing from '@/components/landing/pricing';
+import FAQ from '@/components/landing/faq';
+import CTA from '@/components/landing/cta';
 
 interface User {
   id: string;
@@ -55,6 +62,11 @@ export default function Home() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const screenshotInputRef = useRef<HTMLInputElement>(null);
 
+  // Export and scroll refs
+  const editorRef = useRef<HTMLDivElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [copyMessage, setCopyMessage] = useState('');
+
   useEffect(() => {
     fetchUser();
   }, []);
@@ -67,6 +79,10 @@ export default function Home() {
     } catch (err) {
       console.error('Fetch user error:', err);
     }
+  };
+
+  const scrollToEditor = () => {
+    editorRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleLogout = async () => {
@@ -183,7 +199,6 @@ export default function Home() {
     if (!paymentCode) return;
     setRedeemCode(paymentCode);
 
-    // Reuse existing redeem flow
     setRedeemMessage('');
     try {
       const res = await fetch('/api/redeem', {
@@ -253,7 +268,7 @@ export default function Home() {
 
       if (data.result) {
         setResult(data.result);
-        fetchUser(); // 刷新额度
+        fetchUser();
       } else {
         throw new Error('未返回优化结果');
       }
@@ -343,439 +358,519 @@ export default function Home() {
     setUploadedFileName('');
   };
 
+  // Export handlers
+  const handleCopy = async () => {
+    if (!result) return;
+    try {
+      await copyToClipboard(result);
+      setCopyMessage('已复制到剪贴板');
+      setTimeout(() => setCopyMessage(''), 2000);
+    } catch {
+      setCopyMessage('复制失败');
+    }
+  };
+
+  const handleDownloadMarkdown = () => {
+    if (!result) return;
+    downloadMarkdown(result, '简历优化结果');
+  };
+
+  const handleExportWord = async () => {
+    if (!resultRef.current) return;
+    const html = resultRef.current.innerHTML;
+    await exportToWord(html, '简历优化结果');
+  };
+
+  const handleExportPDF = async () => {
+    if (!resultRef.current) return;
+    await exportToPDF(resultRef.current, '简历优化结果');
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white">
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onLogin={() => fetchUser()}
       />
 
-      <div className="mx-auto max-w-5xl">
-        {/* Header + User Bar */}
-        <div className="mb-8">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="text-center sm:text-left">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                AI 简历优化
-              </h1>
-              <p className="mt-2 text-base text-slate-600">
-                上传简历 PDF/图片，或粘贴文字，AI 帮你生成优化版简历和面试建议
-              </p>
-            </div>
+      {/* Landing Page */}
+      <Hero onStart={scrollToEditor} />
+      <Features />
+      <Steps />
+      <Pricing onStart={scrollToEditor} />
+      <FAQ />
+      <CTA onStart={scrollToEditor} />
 
-            <div className="flex items-center gap-3">
-              {user ? (
-                <div className="flex flex-col items-end gap-1">
-                  <div className="text-sm text-slate-700">
-                    {user.email}
+      {/* Editor Section */}
+      <div ref={editorRef} className="bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl">
+          {/* Header + User Bar */}
+          <div className="mb-8">
+            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <div className="text-center sm:text-left">
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+                  AI 简历优化
+                </h2>
+                <p className="mt-2 text-base text-slate-600">
+                  上传简历 PDF/图片，或粘贴文字，AI 帮你生成优化版简历和面试建议
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {user ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="text-sm text-slate-700">{user.email}</div>
+                    <div className="text-xs text-slate-500">
+                      {user.hasSubscription ? (
+                        <span className="font-medium text-green-600">会员有效期内无限次</span>
+                      ) : (
+                        <span>
+                          今日免费 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
+                          {user.credits > 0 && ` · 额度 ${user.credits} 次`}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      退出登录
+                    </button>
                   </div>
-                  <div className="text-xs text-slate-500">
-                    {user.hasSubscription ? (
-                      <span className="font-medium text-green-600">会员有效期内无限次</span>
+                ) : (
+                  <button
+                    onClick={() => setAuthModalOpen(true)}
+                    className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                  >
+                    登录 / 注册
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Input Form */}
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label
+                    htmlFor="jobTitle"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    目标岗位 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="jobTitle"
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    placeholder="例如：产品经理、Java 后端开发、新媒体运营"
+                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="jobDescription"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    岗位 JD（可选）
+                  </label>
+                  <textarea
+                    id="jobDescription"
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="粘贴招聘要求，优化会更精准"
+                    rows={4}
+                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    上传简历（PDF / 图片）
+                  </label>
+                  <div
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`mt-1 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
+                      isDragging
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,image/*"
+                      onChange={onFileChange}
+                      className="hidden"
+                    />
+                    <svg
+                      className="mb-2 h-10 w-10 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    {uploading ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"></div>
+                        正在提取文字，请稍候...
+                      </div>
+                    ) : uploadedFileName ? (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-blue-700">
+                          已上传：{uploadedFileName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          文字已填入下方输入框，点击可重新上传
+                        </p>
+                      </div>
                     ) : (
-                      <span>
-                        今日免费 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
-                        {user.credits > 0 && ` · 额度 ${user.credits} 次`}
-                      </span>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-slate-700">
+                          点击或拖拽上传简历
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          支持 PDF、PNG、JPG、WebP，最大 5MB
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="text-xs text-slate-400 hover:text-slate-600"
-                  >
-                    退出登录
-                  </button>
+                  {uploadError && (
+                    <p className="mt-2 text-sm text-red-600">{uploadError}</p>
+                  )}
                 </div>
-              ) : (
-                <button
-                  onClick={() => setAuthModalOpen(true)}
-                  className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-                >
-                  登录 / 注册
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Input Form */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label
-                  htmlFor="jobTitle"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  目标岗位 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="jobTitle"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="例如：产品经理、Java 后端开发、新媒体运营"
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="jobDescription"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  岗位 JD（可选）
-                </label>
-                <textarea
-                  id="jobDescription"
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  placeholder="粘贴招聘要求，优化会更精准"
-                  rows={4}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  上传简历（PDF / 图片）
-                </label>
-                <div
-                  onDragOver={onDragOver}
-                  onDragLeave={onDragLeave}
-                  onDrop={onDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`mt-1 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
-                    isDragging
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,image/*"
-                    onChange={onFileChange}
-                    className="hidden"
+                <div>
+                  <label
+                    htmlFor="resume"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    简历内容 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="resume"
+                    value={resume}
+                    onChange={(e) => setResume(e.target.value)}
+                    placeholder="粘贴你的简历内容，或上传 PDF/图片自动提取"
+                    rows={12}
+                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    required
                   />
-                  <svg
-                    className="mb-2 h-10 w-10 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  {uploading ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"></div>
-                      正在提取文字，请稍候...
-                    </div>
-                  ) : uploadedFileName ? (
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-blue-700">
-                        已上传：{uploadedFileName}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        文字已填入下方输入框，点击可重新上传
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-slate-700">
-                        点击或拖拽上传简历
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        支持 PDF、PNG、JPG、WebP，最大 5MB
-                      </p>
-                    </div>
-                  )}
+                  <p className="mt-1 text-right text-xs text-slate-500">
+                    {resume.length} / 8000 字
+                  </p>
                 </div>
-                {uploadError && (
-                  <p className="mt-2 text-sm text-red-600">{uploadError}</p>
-                )}
-              </div>
 
-              <div>
-                <label
-                  htmlFor="resume"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  简历内容 <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  id="resume"
-                  value={resume}
-                  onChange={(e) => setResume(e.target.value)}
-                  placeholder="粘贴你的简历内容，或上传 PDF/图片自动提取"
-                  rows={12}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  required
-                />
-                <p className="mt-1 text-right text-xs text-slate-500">
-                  {resume.length} / 8000 字
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="submit"
-                  disabled={loading || !jobTitle.trim() || !resume.trim()}
-                  className="flex-1 rounded-lg bg-blue-600 px-5 py-3 text-center text-base font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                >
-                  {loading ? '优化中，请稍候...' : '开始优化'}
-                </button>
-                <button
-                  type="button"
-                  onClick={fillExample}
-                  className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                >
-                  填入示例
-                </button>
-              </div>
-            </form>
-
-            {error && (
-              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-          </div>
-
-          {/* Result */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">
-              优化结果
-            </h2>
-
-            {!result && !loading && (
-              <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
-                <p className="text-slate-500">填写左侧信息后点击"开始优化"</p>
-                <p className="mt-1 text-sm text-slate-400">
-                  结果将在这里展示
-                </p>
-              </div>
-            )}
-
-            {loading && (
-              <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
-                <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-                <p className="text-slate-600">AI 正在分析你的简历...</p>
-                <p className="mt-1 text-sm text-slate-400">
-                  大约需要 10-30 秒
-                </p>
-              </div>
-            )}
-
-            {result && !loading && (
-              <div className="max-h-[800px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-5">
-                <MarkdownRenderer content={result} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quota & Payment Section */}
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h3 className="mb-3 text-lg font-semibold text-slate-900">
-              我的额度
-            </h3>
-            {user ? (
-              <div className="space-y-2 text-sm text-slate-700">
-                <p>
-                  今日免费次数：
-                  <span className="font-medium">
-                    {getRemainingFree()}/{FREE_DAILY_LIMIT}
-                  </span>
-                </p>
-                <p>
-                  剩余额度：
-                  <span className="font-medium">{user.credits} 次</span>
-                </p>
-                <p>
-                  会员状态：
-                  <span className={user.hasSubscription ? 'font-medium text-green-600' : 'font-medium text-slate-500'}>
-                    {user.hasSubscription
-                      ? `有效期至 ${new Date(user.subscriptionEndsAt!).toLocaleDateString('zh-CN')}`
-                      : '未开通'}
-                  </span>
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">
-                登录后查看额度，每天免费 {FREE_DAILY_LIMIT} 次
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h3 className="mb-3 text-lg font-semibold text-slate-900">
-              兑换码
-            </h3>
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={redeemCode}
-                  onChange={(e) => setRedeemCode(e.target.value)}
-                  placeholder="输入兑换码"
-                  className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-                <button
-                  onClick={handleRedeem}
-                  disabled={!redeemCode.trim() || !user}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
-                >
-                  兑换
-                </button>
-              </div>
-              {redeemMessage && (
-                <p className={`text-sm ${redeemMessage.includes('成功') ? 'text-green-600' : 'text-red-600'}`}>
-                  {redeemMessage}
-                </p>
-              )}
-              <p className="text-xs text-slate-500">
-                购买额度或会员后，会收到兑换码，在此输入即可到账。
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Guide */}
-        <div className="mt-6 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 ring-1 ring-blue-100">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">
-            购买额度
-          </h3>
-
-          {!selectedPackage ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              {DEFAULT_PACKAGES.map((pkg, index) => (
-                <button
-                  key={pkg.name}
-                  onClick={() => handleSelectPackage(pkg, index)}
-                  disabled={paymentLoading}
-                  className="rounded-xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:ring-blue-200 disabled:opacity-70"
-                >
-                  <p className="text-base font-semibold text-slate-900">
-                    {pkg.name}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-blue-600">
-                    ¥{pkg.price}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {pkg.type === 'credits'
-                      ? `获得 ${pkg.value} 次优化额度`
-                      : `获得 ${pkg.value} 天会员`}
-                  </p>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">已选套餐</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {selectedPackage.name} · ¥{selectedPackage.price}
-                    </p>
-                  </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
-                    onClick={resetPayment}
-                    className="text-sm text-slate-500 hover:text-slate-700"
+                    type="submit"
+                    disabled={loading || !jobTitle.trim() || !resume.trim()}
+                    className="flex-1 rounded-lg bg-blue-600 px-5 py-3 text-center text-base font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                   >
-                    重新选择
+                    {loading ? '优化中，请稍候...' : '开始优化'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fillExample}
+                    className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                  >
+                    填入示例
                   </button>
                 </div>
+              </form>
 
-                <ol className="space-y-2 text-sm text-slate-600">
-                  <li>1. 微信扫码付款</li>
-                  <li>2. 截图保存付款成功页面</li>
-                  <li>3. 点击下方按钮上传截图</li>
-                  <li>4. 系统自动识别金额并发放兑换码</li>
-                </ol>
+              {error && (
+                <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+            </div>
 
-                <input
-                  ref={screenshotInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleScreenshotUpload}
-                  className="hidden"
-                />
-
-                <button
-                  onClick={() => screenshotInputRef.current?.click()}
-                  disabled={paymentLoading || !paymentOrderId}
-                  className="mt-4 w-full rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
-                >
-                  {paymentLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
-                      正在处理...
-                    </span>
-                  ) : paymentScreenshotName ? (
-                    '重新上传截图'
-                  ) : (
-                    '我已付款，上传截图'
-                  )}
-                </button>
-
-                {paymentScreenshotName && !paymentSuccess && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    已上传：{paymentScreenshotName}
-                  </p>
-                )}
-
-                {paymentError && (
-                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    {paymentError}
-                  </div>
-                )}
-
-                {paymentSuccess && paymentCode && (
-                  <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
-                    <p className="text-sm font-medium text-green-800">
-                      验证成功，你的兑换码：
-                    </p>
-                    <p className="mt-1 select-all font-mono text-lg font-bold text-green-700">
-                      {paymentCode}
-                    </p>
+            {/* Result */}
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">优化结果</h2>
+                {result && !loading && (
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={handleRedeemPaymentCode}
-                      className="mt-3 w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                      onClick={handleCopy}
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
                     >
-                      立即兑换到账
+                      复制
+                    </button>
+                    <button
+                      onClick={handleDownloadMarkdown}
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                    >
+                      Markdown
+                    </button>
+                    <button
+                      onClick={handleExportWord}
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                    >
+                      Word
+                    </button>
+                    <button
+                      onClick={handleExportPDF}
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                    >
+                      PDF
                     </button>
                   </div>
                 )}
               </div>
+              {copyMessage && (
+                <p className="mb-3 text-xs text-green-600">{copyMessage}</p>
+              )}
 
-              <div className="flex flex-col items-center justify-center">
-                <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <img
-                    src="/wechat-qr.jpg"
-                    alt="微信支付"
-                    className="h-44 w-44 object-contain"
-                  />
+              {!result && !loading && (
+                <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
+                  <p className="text-slate-500">填写左侧信息后点击"开始优化"</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    结果将在这里展示
+                  </p>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">微信扫码支付</p>
+              )}
+
+              {loading && (
+                <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
+                  <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+                  <p className="text-slate-600">AI 正在分析你的简历...</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    大约需要 10-30 秒
+                  </p>
+                </div>
+              )}
+
+              {result && !loading && (
+                <div className="max-h-[800px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-5">
+                  <MarkdownRenderer ref={resultRef} content={result} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quota & Payment Section */}
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <h3 className="mb-3 text-lg font-semibold text-slate-900">
+                我的额度
+              </h3>
+              {user ? (
+                <div className="space-y-2 text-sm text-slate-700">
+                  <p>
+                    今日免费次数：
+                    <span className="font-medium">
+                      {getRemainingFree()}/{FREE_DAILY_LIMIT}
+                    </span>
+                  </p>
+                  <p>
+                    剩余额度：
+                    <span className="font-medium">{user.credits} 次</span>
+                  </p>
+                  <p>
+                    会员状态：
+                    <span
+                      className={
+                        user.hasSubscription
+                          ? 'font-medium text-green-600'
+                          : 'font-medium text-slate-500'
+                      }
+                    >
+                      {user.hasSubscription
+                        ? `有效期至 ${new Date(user.subscriptionEndsAt!).toLocaleDateString('zh-CN')}`
+                        : '未开通'}
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  登录后查看额度，每天免费 {FREE_DAILY_LIMIT} 次
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <h3 className="mb-3 text-lg font-semibold text-slate-900">
+                兑换码
+              </h3>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={redeemCode}
+                    onChange={(e) => setRedeemCode(e.target.value)}
+                    placeholder="输入兑换码"
+                    className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <button
+                    onClick={handleRedeem}
+                    disabled={!redeemCode.trim() || !user}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+                  >
+                    兑换
+                  </button>
+                </div>
+                {redeemMessage && (
+                  <p
+                    className={`text-sm ${
+                      redeemMessage.includes('成功')
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                    }`}
+                  >
+                    {redeemMessage}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  购买额度或会员后，会收到兑换码，在此输入即可到账。
+                </p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Footer */}
-        <div className="mt-12 text-center text-sm text-slate-500">
-          <p>基于 DeepSeek AI 构建 · 仅供求职参考，请根据实际情况调整</p>
+          {/* Payment Guide */}
+          <div className="mt-6 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 ring-1 ring-blue-100">
+            <h3 className="mb-4 text-lg font-semibold text-slate-900">
+              购买额度
+            </h3>
+
+            {!selectedPackage ? (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {DEFAULT_PACKAGES.map((pkg, index) => (
+                  <button
+                    key={pkg.name}
+                    onClick={() => handleSelectPackage(pkg, index)}
+                    disabled={paymentLoading}
+                    className="rounded-xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:ring-blue-200 disabled:opacity-70"
+                  >
+                    <p className="text-base font-semibold text-slate-900">
+                      {pkg.name}
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-blue-600">
+                      ¥{pkg.price}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {pkg.type === 'credits'
+                        ? `获得 ${pkg.value} 次优化额度`
+                        : `获得 ${pkg.value} 天会员`}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-500">已选套餐</p>
+                      <p className="text-lg font-semibold text-slate-900">
+                        {selectedPackage.name} · ¥{selectedPackage.price}
+                      </p>
+                    </div>
+                    <button
+                      onClick={resetPayment}
+                      className="text-sm text-slate-500 hover:text-slate-700"
+                    >
+                      重新选择
+                    </button>
+                  </div>
+
+                  <ol className="space-y-2 text-sm text-slate-600">
+                    <li>1. 微信扫码付款</li>
+                    <li>2. 截图保存付款成功页面</li>
+                    <li>3. 点击下方按钮上传截图</li>
+                    <li>4. 系统自动识别金额并发放兑换码</li>
+                  </ol>
+
+                  <input
+                    ref={screenshotInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleScreenshotUpload}
+                    className="hidden"
+                  />
+
+                  <button
+                    onClick={() => screenshotInputRef.current?.click()}
+                    disabled={paymentLoading || !paymentOrderId}
+                    className="mt-4 w-full rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+                  >
+                    {paymentLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+                        正在处理...
+                      </span>
+                    ) : paymentScreenshotName ? (
+                      '重新上传截图'
+                    ) : (
+                      '我已付款，上传截图'
+                    )}
+                  </button>
+
+                  {paymentScreenshotName && !paymentSuccess && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      已上传：{paymentScreenshotName}
+                    </p>
+                  )}
+
+                  {paymentError && (
+                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {paymentError}
+                    </div>
+                  )}
+
+                  {paymentSuccess && paymentCode && (
+                    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
+                      <p className="text-sm font-medium text-green-800">
+                        验证成功，你的兑换码：
+                      </p>
+                      <p className="mt-1 select-all font-mono text-lg font-bold text-green-700">
+                        {paymentCode}
+                      </p>
+                      <button
+                        onClick={handleRedeemPaymentCode}
+                        className="mt-3 w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                      >
+                        立即兑换到账
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-center justify-center">
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <img
+                      src="/wechat-qr.jpg"
+                      alt="微信支付"
+                      className="h-44 w-44 object-contain"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">微信扫码支付</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-12 text-center text-sm text-slate-500">
+            <p>基于 DeepSeek AI 构建 · 仅供求职参考，请根据实际情况调整</p>
+          </div>
         </div>
       </div>
     </div>

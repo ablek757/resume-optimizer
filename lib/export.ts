@@ -52,3 +52,24 @@ export async function exportToPDF(
 
   await html2pdf().set(opt).from(element).save();
 }
+
+export function exportResumeToMarkdown(
+  content: string,
+  filename: string = '优化版简历'
+) {
+  downloadMarkdown(content, filename);
+}
+
+export async function exportResumeToWord(
+  htmlContent: string,
+  filename: string = '优化版简历'
+) {
+  await exportToWord(htmlContent, filename);
+}
+
+export async function exportResumeToPDF(
+  element: HTMLElement,
+  filename: string = '优化版简历'
+) {
+  await exportToPDF(element, filename);
+}

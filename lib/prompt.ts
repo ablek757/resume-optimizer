@@ -1,7 +1,19 @@
-export const buildOptimizePrompt = (jobTitle: string, resume: string, jobDescription?: string): string => {
+export const buildOptimizePrompt = (
+  jobTitle: string,
+  resume: string,
+  jobDescription?: string,
+  language: 'zh' | 'en' | 'bilingual' = 'zh'
+): string => {
   const jdSection = jobDescription
     ? `\n【目标岗位 JD】\n${jobDescription}`
     : '';
+
+  const languageInstruction =
+    language === 'en'
+      ? 'All output must be in English.'
+      : language === 'bilingual'
+      ? 'The "优化版简历" section should be bilingual: present each item in Chinese first, followed by its English translation. All other sections can be in Chinese.'
+      : '全部使用中文';
 
   return `你是一位有 10 年经验的 HR 总监和资深猎头顾问，擅长按目标岗位优化简历，尤其熟悉中国互联网、科技、金融、消费品、新能源等行业招聘。你深知 HR 在 10-15 秒内筛选简历的关注点，也熟悉 ATS（招聘系统）关键词匹配逻辑。
 
@@ -95,7 +107,7 @@ ${resume}
 
 ## 输出要求
 
-- 全部使用中文
+- ${languageInstruction}
 - 语气专业、真诚、有建设性，像资深猎头给求职者改简历
 - 不编造用户没有的经历、数据、项目
 - Markdown 格式清晰，标题层级正确

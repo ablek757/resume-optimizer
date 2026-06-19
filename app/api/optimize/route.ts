@@ -3,17 +3,43 @@ import OpenAI from 'openai';
 import { buildOptimizePrompt } from '@/lib/prompt';
 import { mockOptimizeResult } from '@/lib/mock-response';
 import { getCurrentUser } from '@/lib/auth';
-import { checkQuota, deductQuota } from '@/lib/quota';
+import { checkQuota, deductQuota, hasActiveSubscription } from '@/lib/quota';
 import { prisma } from '@/lib/prisma';
+import { sendQuotaReminderEmail } from '@/lib/email';
 
 const MAX_RESUME_LENGTH = 8000;
 const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || '3');
 
 export const maxDuration = 60;
 
+async function maybeSendQuotaReminder(userId: string) {
+  try {
+    const updatedUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!updatedUser) return;
+    if (hasActiveSubscription(updatedUser.subscriptionEndsAt)) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const dailyFreeUses =
+      updatedUser.lastFreeUseDate === today ? updatedUser.dailyFreeUses : 0;
+    const remainingFree = Math.max(0, FREE_DAILY_LIMIT - dailyFreeUses);
+
+    if (remainingFree <= 1 || updatedUser.credits === 0) {
+      sendQuotaReminderEmail(updatedUser.email, remainingFree, updatedUser.credits).catch(
+        (err) => console.error('Send quota reminder error:', err)
+      );
+    }
+  } catch (err) {
+    console.error('Quota reminder check error:', err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { jobTitle, resume, jobDescription } = await req.json();
+    const { jobTitle, resume, jobDescription, language = 'zh' } = await req.json();
+
+    const validLanguage = ['zh', 'en', 'bilingual'].includes(language)
+      ? (language as 'zh' | 'en' | 'bilingual')
+      : 'zh';
 
     // 基础校验
     if (!jobTitle || typeof jobTitle !== 'string' || jobTitle.trim().length === 0) {
@@ -74,7 +100,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = buildOptimizePrompt(jobTitle.trim(), resume.trim(), jobDescription?.trim());
+    const prompt = buildOptimizePrompt(
+      jobTitle.trim(),
+      resume.trim(),
+      jobDescription?.trim(),
+      validLanguage
+    );
 
     // Mock 模式：以流的形式返回示例结果
     if (process.env.MOCK_MODE === 'true') {
@@ -88,6 +119,7 @@ export async function POST(req: NextRequest) {
           }
           controller.close();
           await deductQuota(user.id);
+          await maybeSendQuotaReminder(user.id);
           prisma.optimizationHistory.create({
             data: {
               userId: user.id,
@@ -140,6 +172,7 @@ export async function POST(req: NextRequest) {
 
           // 流结束后扣除额度并保存历史（不阻塞响应）
           await deductQuota(user.id);
+          await maybeSendQuotaReminder(user.id);
           prisma.optimizationHistory.create({
             data: {
               userId: user.id,

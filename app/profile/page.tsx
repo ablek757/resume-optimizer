@@ -9,6 +9,8 @@ import {
   exportToWord,
   exportToPDF,
 } from '@/lib/export';
+import { extractOptimizedResume } from '@/lib/extract-resume';
+import { computeLineDiff, DiffLine } from '@/lib/diff';
 
 interface User {
   id: string;
@@ -47,6 +49,11 @@ export default function ProfilePage() {
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null);
   const [copyMessage, setCopyMessage] = useState('');
   const resultRef = useRef<HTMLDivElement>(null);
+
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [comparePair, setComparePair] = useState<[HistoryItem, HistoryItem] | null>(null);
+  const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
 
   useEffect(() => {
     fetchUser();
@@ -118,6 +125,31 @@ export default function ProfilePage() {
   const handleExportPDF = async () => {
     if (!resultRef.current) return;
     await exportToPDF(resultRef.current, '简历优化结果');
+  };
+
+  const toggleCompareSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+
+  const startCompare = () => {
+    if (selectedIds.length !== 2) return;
+    const pair = histories.filter((h) => selectedIds.includes(h.id)) as [HistoryItem, HistoryItem];
+    if (pair.length !== 2) return;
+    setComparePair(pair);
+    const left = extractOptimizedResume(pair[0].result);
+    const right = extractOptimizedResume(pair[1].result);
+    setDiffLines(computeLineDiff(left, right));
+  };
+
+  const closeCompare = () => {
+    setComparePair(null);
+    setDiffLines([]);
+    setSelectedIds([]);
+    setCompareMode(false);
   };
 
   const getRemainingFree = () => {
@@ -204,9 +236,32 @@ export default function ProfilePage() {
         <div className="grid gap-8 lg:grid-cols-3">
           {/* History List */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">
-              优化历史
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">优化历史</h2>
+              <div className="flex items-center gap-2">
+                {compareMode && selectedIds.length === 2 && (
+                  <button
+                    onClick={startCompare}
+                    className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  >
+                    对比选中
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setCompareMode((v) => !v);
+                    setSelectedIds([]);
+                  }}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                    compareMode
+                      ? 'bg-slate-200 text-slate-800'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {compareMode ? '退出对比' : '对比模式'}
+                </button>
+              </div>
+            </div>
 
             {histories.length === 0 ? (
               <div className="rounded-xl bg-slate-50 py-12 text-center">
@@ -230,9 +285,17 @@ export default function ProfilePage() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
+                      {compareMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(history.id)}
+                          onChange={() => toggleCompareSelection(history.id)}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      )}
                       <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => setSelectedHistory(history)}
+                        onClick={() => !compareMode && setSelectedHistory(history)}
                       >
                         <h3 className="font-medium text-slate-900">
                           {history.jobTitle}
@@ -244,12 +307,14 @@ export default function ProfilePage() {
                           {formatDate(history.createdAt)}
                         </p>
                       </div>
-                      <button
-                        onClick={() => deleteHistory(history.id)}
-                        className="text-sm text-red-500 hover:text-red-700"
-                      >
-                        删除
-                      </button>
+                      {!compareMode && (
+                        <button
+                          onClick={() => deleteHistory(history.id)}
+                          className="text-sm text-red-500 hover:text-red-700"
+                        >
+                          删除
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -303,6 +368,75 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Compare Modal */}
+      {comparePair && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">历史版本对比</h3>
+                <p className="text-xs text-slate-500">
+                  仅对比「优化版简历」部分，绿色为新增，红色为删除
+                </p>
+              </div>
+              <button
+                onClick={closeCompare}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
+              <div className="mb-4 grid grid-cols-2 gap-4 text-sm font-medium text-slate-700">
+                <div>
+                  {comparePair[0].jobTitle}{' '}
+                  <span className="text-xs text-slate-400">
+                    {formatDate(comparePair[0].createdAt)}
+                  </span>
+                </div>
+                <div>
+                  {comparePair[1].jobTitle}{' '}
+                  <span className="text-xs text-slate-400">
+                    {formatDate(comparePair[1].createdAt)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-slate-100">
+                    {diffLines.map((line, idx) => (
+                      <tr
+                        key={idx}
+                        className={
+                          line.type === 'add'
+                            ? 'bg-green-50'
+                            : line.type === 'remove'
+                            ? 'bg-red-50'
+                            : line.type === 'change'
+                            ? 'bg-yellow-50'
+                            : 'bg-white'
+                        }
+                      >
+                        <td className="w-1/2 whitespace-pre-wrap border-r border-slate-100 px-3 py-1.5 text-slate-800">
+                          {line.left ?? ''}
+                        </td>
+                        <td className="w-1/2 whitespace-pre-wrap px-3 py-1.5 text-slate-800">
+                          {line.right ?? ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* History Detail Modal */}
       {selectedHistory && (

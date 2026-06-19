@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createToken, setAuthCookie } from '@/lib/auth';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,9 +39,16 @@ export async function POST(req: NextRequest) {
       where: { email },
     });
 
+    const isNewUser = !user;
     if (!user) {
       user = await prisma.user.create({
         data: { email },
+      });
+    }
+
+    if (isNewUser) {
+      sendWelcomeEmail(user.email).catch((err) => {
+        console.error('Send welcome email error:', err);
       });
     }
 

@@ -4,8 +4,19 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import MarkdownRenderer from '@/components/markdown-renderer';
 import AuthModal from '@/components/auth-modal';
+import ResumeTemplate, { ResumeTemplateType } from '@/components/resume-template';
+import Onboarding, { useOnboarding } from '@/components/onboarding';
 import { Package, DEFAULT_PACKAGES } from '@/lib/payment';
-import { copyToClipboard, downloadMarkdown, exportToWord, exportToPDF } from '@/lib/export';
+import {
+  copyToClipboard,
+  downloadMarkdown,
+  exportToWord,
+  exportToPDF,
+  exportResumeToMarkdown,
+  exportResumeToWord,
+  exportResumeToPDF,
+} from '@/lib/export';
+import { extractOptimizedResume } from '@/lib/extract-resume';
 import Hero from '@/components/landing/hero';
 import Features from '@/components/landing/features';
 import Steps from '@/components/landing/steps';
@@ -66,6 +77,12 @@ export default function Home() {
   const [score, setScore] = useState<ScoreResult | null>(null);
   const [scoring, setScoring] = useState(false);
 
+  const [language, setLanguage] = useState<'zh' | 'en' | 'bilingual'>('zh');
+  const [resultTab, setResultTab] = useState<'report' | 'resume'>('report');
+  const [editedResume, setEditedResume] = useState('');
+  const [resumeTemplate, setResumeTemplate] = useState<ResumeTemplateType>('classic');
+  const resumePreviewRef = useRef<HTMLDivElement>(null);
+
   const [user, setUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
@@ -94,6 +111,8 @@ export default function Home() {
 
   // Abort controller for stopping generation
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const { show: showOnboarding, close: closeOnboarding } = useOnboarding();
 
   const fetchUser = async () => {
     try {
@@ -128,6 +147,15 @@ export default function Home() {
 
     return () => clearTimeout(timer);
   }, [jobTitle, jobDescription, resume]);
+
+  // Extract editable resume section when result arrives
+  useEffect(() => {
+    const extracted = extractOptimizedResume(result);
+    setEditedResume(extracted);
+    if (extracted) {
+      setResultTab('resume');
+    }
+  }, [result]);
 
   const scrollToEditor = () => {
     editorRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -304,6 +332,7 @@ export default function Home() {
           jobTitle: jobTitle.trim(),
           resume: resume.trim(),
           jobDescription: jobDescription.trim() || undefined,
+          language,
         }),
       });
 
@@ -343,6 +372,7 @@ export default function Home() {
           jobTitle: jobTitle.trim(),
           resume: resume.trim(),
           jobDescription: jobDescription.trim() || undefined,
+          language,
         }),
         signal: abortController.signal,
       });
@@ -511,6 +541,36 @@ export default function Home() {
     await exportToPDF(resultRef.current, '简历优化结果');
   };
 
+  const handleResumeCopy = async () => {
+    if (!editedResume) return;
+    try {
+      await copyToClipboard(editedResume);
+      setCopyMessage('已复制优化版简历');
+      setTimeout(() => setCopyMessage(''), 2000);
+    } catch {
+      setCopyMessage('复制失败');
+    }
+  };
+
+  const handleResumeExportMarkdown = () => {
+    if (!editedResume) return;
+    exportResumeToMarkdown(editedResume, '优化版简历');
+  };
+
+  const handleResumeExportWord = async () => {
+    if (!resumePreviewRef.current) return;
+    await exportResumeToWord(resumePreviewRef.current.innerHTML, '优化版简历');
+  };
+
+  const handleResumeExportPDF = async () => {
+    if (!resumePreviewRef.current) return;
+    await exportResumeToPDF(resumePreviewRef.current, '优化版简历');
+  };
+
+  const resetEditedResume = () => {
+    setEditedResume(extractOptimizedResume(result));
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <AuthModal
@@ -518,6 +578,17 @@ export default function Home() {
         onClose={() => setAuthModalOpen(false)}
         onLogin={() => fetchUser()}
       />
+
+      {showOnboarding && (
+        <Onboarding
+          onStartDemo={() => {
+            fillExample();
+            scrollToEditor();
+            closeOnboarding();
+          }}
+          onClose={closeOnboarding}
+        />
+      )}
 
       {/* Landing Page */}
       <Hero onStart={scrollToEditor} />
@@ -603,6 +674,27 @@ export default function Home() {
                     className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     required
                   />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="language"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    输出语言
+                  </label>
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) =>
+                      setLanguage(e.target.value as 'zh' | 'en' | 'bilingual')
+                    }
+                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                    <option value="bilingual">中英双语</option>
+                  </select>
                 </div>
 
                 <div>
@@ -743,8 +835,34 @@ export default function Home() {
 
             {/* Result */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">优化结果</h2>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-slate-900">优化结果</h2>
+                  {result && !loading && (
+                    <div className="flex rounded-lg bg-slate-100 p-0.5">
+                      <button
+                        onClick={() => setResultTab('report')}
+                        className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                          resultTab === 'report'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        完整报告
+                      </button>
+                      <button
+                        onClick={() => setResultTab('resume')}
+                        className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                          resultTab === 'resume'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        优化版简历
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   {loading && (
                     <button
@@ -754,7 +872,7 @@ export default function Home() {
                       停止生成
                     </button>
                   )}
-                  {result && !loading && (
+                  {result && !loading && resultTab === 'report' && (
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleCopy}
@@ -776,6 +894,34 @@ export default function Home() {
                       </button>
                       <button
                         onClick={handleExportPDF}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        PDF
+                      </button>
+                    </div>
+                  )}
+                  {result && !loading && resultTab === 'resume' && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleResumeCopy}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        复制
+                      </button>
+                      <button
+                        onClick={handleResumeExportMarkdown}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        Markdown
+                      </button>
+                      <button
+                        onClick={handleResumeExportWord}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        Word
+                      </button>
+                      <button
+                        onClick={handleResumeExportPDF}
                         className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
                       >
                         PDF
@@ -873,6 +1019,15 @@ export default function Home() {
                   <p className="mt-1 text-sm text-slate-400">
                     结果将在这里展示
                   </p>
+                  <button
+                    onClick={() => {
+                      fillExample();
+                      scrollToEditor();
+                    }}
+                    className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    查看演示
+                  </button>
                 </div>
               )}
 
@@ -886,11 +1041,82 @@ export default function Home() {
                 </div>
               )}
 
-              {(result || (loading && result)) && (
+              {result && resultTab === 'report' && (
                 <div className="relative max-h-[800px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-5">
                   <MarkdownRenderer ref={resultRef} content={result} />
                   {loading && (
                     <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-blue-600"></span>
+                  )}
+                </div>
+              )}
+
+              {result && resultTab === 'resume' && (
+                <div className="space-y-4">
+                  {!editedResume ? (
+                    <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
+                      <p className="text-slate-500">未识别到「优化版简历」部分</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        请切换回「完整报告」查看结果
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-slate-500">
+                          选择模板：
+                        </span>
+                        {(['classic', 'modern', 'minimal'] as ResumeTemplateType[]).map(
+                          (t) => (
+                            <button
+                              key={t}
+                              onClick={() => setResumeTemplate(t)}
+                              className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                                resumeTemplate === t
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                              }`}
+                            >
+                              {t === 'classic'
+                                ? '经典简洁'
+                                : t === 'modern'
+                                ? '现代专业'
+                                : '极简紧凑'}
+                            </button>
+                          )
+                        )}
+                        <button
+                          onClick={resetEditedResume}
+                          className="ml-auto rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                        >
+                          重置修改
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-500">
+                          在线编辑
+                        </label>
+                        <textarea
+                          value={editedResume}
+                          onChange={(e) => setEditedResume(e.target.value)}
+                          rows={10}
+                          className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-500">
+                          预览
+                        </label>
+                        <div className="mt-1">
+                          <ResumeTemplate
+                            ref={resumePreviewRef}
+                            content={editedResume}
+                            template={resumeTemplate}
+                          />
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

@@ -1,11 +1,19 @@
 export const buildScorePrompt = (
   jobTitle: string,
   resume: string,
-  jobDescription?: string
+  jobDescription?: string,
+  language: 'zh' | 'en' | 'bilingual' = 'zh'
 ): string => {
   const jdSection = jobDescription
     ? `\n【目标岗位 JD】\n${jobDescription}`
     : '';
+
+  const languageInstruction =
+    language === 'en'
+      ? 'Return all text fields (summary, keywords, suggestions) in English.'
+      : language === 'bilingual'
+      ? 'Return summary and suggestions in Chinese, but include an English translation for each keyword.'
+      : '全部使用中文';
 
   return `你是一位资深 HR 总监和 ATS 优化专家。请根据目标岗位和简历内容，对简历进行客观评分，并给出 JD 匹配度分析。
 
@@ -33,9 +41,11 @@ ${resume}
 }
 
 要求：
+- ${languageInstruction}
 - score：1-10 分，精确到 0.5 分
 - matchPercentage：0-100 的整数，表示与 JD 的匹配程度（没有 JD 时按目标岗位通用要求评估）
 - keywords：5-8 个目标岗位高频关键词，标明是否已在简历中体现
 - suggestions：3-5 条具体、可执行的改进建议
 - summary：客观、专业、有建设性`;
+
 };

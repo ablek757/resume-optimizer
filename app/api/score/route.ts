@@ -17,7 +17,11 @@ export interface ScoreResult {
 
 export async function POST(req: NextRequest) {
   try {
-    const { jobTitle, resume, jobDescription } = await req.json();
+    const { jobTitle, resume, jobDescription, language = 'zh' } = await req.json();
+
+    const validLanguage = ['zh', 'en', 'bilingual'].includes(language)
+      ? (language as 'zh' | 'en' | 'bilingual')
+      : 'zh';
 
     if (!jobTitle || typeof jobTitle !== 'string' || jobTitle.trim().length === 0) {
       return NextResponse.json({ error: '请输入目标岗位' }, { status: 400 });
@@ -55,7 +59,12 @@ export async function POST(req: NextRequest) {
 
     const client = new OpenAI({ apiKey, baseURL });
 
-    const prompt = buildScorePrompt(jobTitle.trim(), resume.trim(), jobDescription?.trim());
+    const prompt = buildScorePrompt(
+      jobTitle.trim(),
+      resume.trim(),
+      jobDescription?.trim(),
+      validLanguage
+    );
 
     const response = await client.chat.completions.create({
       model,

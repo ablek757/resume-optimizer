@@ -25,6 +25,9 @@ VISION_API_KEY=sk-d7ba1a46d92f46c8a0aaa898a6e26859
 VISION_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 VISION_MODEL=qwen-vl-plus
 ADMIN_PASSWORD=yD6B4dL9SfdC2hJ8RgEw
+AUDIO_API_KEY=your_dashscope_api_key
+AUDIO_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AUDIO_TTS_MODEL=qwen-omni-turbo
 ```
 
 - 点击 **Deploy**
@@ -46,4 +49,6 @@ DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npm run migrate:prod
 
 - 访问 Vercel 分配的域名
 - 测试邮箱登录、简历优化、购买额度流程
+- 测试 JD 关键词改写、ATS 检测、简历版本管理
+- 测试面试模拟页语音模式（需配置 `AUDIO_API_KEY`）
 - 访问 `/admin` 用 `ADMIN_PASSWORD` 登录查看后台

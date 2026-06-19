@@ -70,3 +70,25 @@ model OptimizationHistory {
   @@index([userId])
   @@index([createdAt])
 }
+
+model JobApplication {
+  id              String   @id @default(cuid())
+  userId          String
+  company         String
+  position        String
+  jobTitle        String
+  jobDescription  String?
+  source          String?
+  status          String
+  salary          String?
+  location        String?
+  contact         String?
+  notes           String?
+  appliedAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([appliedAt])
+}

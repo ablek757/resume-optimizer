@@ -635,6 +635,12 @@ export default function Home() {
                         面试模拟
                       </Link>
                       <Link
+                        href="/applications"
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        投递追踪
+                      </Link>
+                      <Link
                         href="/profile"
                         className="text-xs text-blue-600 hover:text-blue-700"
                       >

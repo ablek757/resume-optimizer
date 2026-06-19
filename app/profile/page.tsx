@@ -204,6 +204,31 @@ export default function ProfilePage() {
           </Link>
         </div>
 
+        {/* Quick Actions */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          <Link
+            href="/interview"
+            className="rounded-2xl bg-blue-50 p-5 ring-1 ring-blue-100 transition-colors hover:bg-blue-100"
+          >
+            <p className="font-semibold text-blue-800">AI 面试模拟</p>
+            <p className="mt-1 text-xs text-blue-600">基于简历和岗位实战演练</p>
+          </Link>
+          <Link
+            href="/applications"
+            className="rounded-2xl bg-green-50 p-5 ring-1 ring-green-100 transition-colors hover:bg-green-100"
+          >
+            <p className="font-semibold text-green-800">投递追踪</p>
+            <p className="mt-1 text-xs text-green-600">记录投递进度，把握求职节奏</p>
+          </Link>
+          <Link
+            href="/"
+            className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+          >
+            <p className="font-semibold text-slate-800">继续优化简历</p>
+            <p className="mt-1 text-xs text-slate-600">上传简历，获取 AI 优化建议</p>
+          </Link>
+        </div>
+
         {/* User Info */}
         <div className="mb-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">我的账户</h2>

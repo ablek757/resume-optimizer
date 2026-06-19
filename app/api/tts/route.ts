@@ -20,9 +20,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.AUDIO_API_KEY || process.env.DASHSCOPE_API_KEY;
+    const apiKey =
+      process.env.AUDIO_API_KEY ||
+      process.env.DASHSCOPE_API_KEY ||
+      process.env.VISION_API_KEY;
     const baseURL =
-      process.env.AUDIO_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+      process.env.AUDIO_BASE_URL ||
+      process.env.VISION_BASE_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1';
     const model = process.env.AUDIO_TTS_MODEL || 'qwen-omni-turbo';
 
     if (!apiKey) {

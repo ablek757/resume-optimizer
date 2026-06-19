@@ -47,8 +47,11 @@ DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npm run migrate:prod
 
 ## 4. 验证
 
-- 访问 Vercel 分配的域名
+- 访问生产域名：https://resume-optimizer-smoky.vercel.app
 - 测试邮箱登录、简历优化、购买额度流程
 - 测试 JD 关键词改写、ATS 检测、简历版本管理
-- 测试面试模拟页语音模式（需配置 `AUDIO_API_KEY`）
+- 测试面试模拟页语音模式（会自动使用 `VISION_API_KEY`，也可单独配置 `AUDIO_API_KEY`）
+- 测试面试复盘分析 `/interview/review`
 - 访问 `/admin` 用 `ADMIN_PASSWORD` 登录查看后台
+
+> 如果 `resume-optimizer-smoky.vercel.app` 没有指向最新部署，请在 Vercel Dashboard 里将该域名设为 Production Domain。

@@ -777,7 +777,7 @@ export default function Home() {
                 {/* File Upload */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700">
-                    上传简历（PDF / 图片）
+                    上传简历（PDF / Word / 图片）
                   </label>
                   <div
                     onDragOver={onDragOver}
@@ -793,7 +793,7 @@ export default function Home() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,image/*"
+                      accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
                       onChange={onFileChange}
                       className="hidden"
                     />
@@ -830,7 +830,7 @@ export default function Home() {
                           点击或拖拽上传简历
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          支持 PDF、PNG、JPG、WebP，最大 5MB
+                          支持 PDF、Word（docx）、PNG、JPG、WebP，最大 5MB
                         </p>
                       </div>
                     )}

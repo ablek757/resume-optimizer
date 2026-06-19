@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import PDFParser from 'pdf2json';
+import mammoth from 'mammoth';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -88,8 +89,22 @@ async function extractTextFromImage(buffer: Buffer, mimeType: string): Promise<s
   return content.trim();
 }
 
+async function extractTextFromWord(buffer: Buffer): Promise<string> {
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function isPDF(type: string, name: string): boolean {
   return type === 'application/pdf' || name.toLowerCase().endsWith('.pdf');
+}
+
+function isWord(type: string, name: string): boolean {
+  return (
+    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.toLowerCase().endsWith('.docx')
+  );
 }
 
 function isImage(type: string, name: string): boolean {
@@ -122,11 +137,13 @@ export async function POST(req: NextRequest) {
 
     if (isPDF(file.type, file.name)) {
       text = await extractTextFromPDF(buffer);
+    } else if (isWord(file.type, file.name)) {
+      text = await extractTextFromWord(buffer);
     } else if (isImage(file.type, file.name)) {
       text = await extractTextFromImage(buffer, file.type || 'image/png');
     } else {
       return NextResponse.json(
-        { error: '仅支持 PDF 或图片文件（PNG、JPG、WebP、GIF、BMP）' },
+        { error: '仅支持 PDF、Word（docx）或图片文件（PNG、JPG、WebP、GIF、BMP）' },
         { status: 400 }
       );
     }

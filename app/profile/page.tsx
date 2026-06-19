@@ -308,12 +308,20 @@ export default function ProfilePage() {
                         </p>
                       </div>
                       {!compareMode && (
-                        <button
-                          onClick={() => deleteHistory(history.id)}
-                          className="text-sm text-red-500 hover:text-red-700"
-                        >
-                          删除
-                        </button>
+                        <div className="flex flex-col items-end gap-2">
+                          <Link
+                            href="/interview"
+                            className="text-sm text-blue-600 hover:text-blue-700"
+                          >
+                            模拟面试
+                          </Link>
+                          <button
+                            onClick={() => deleteHistory(history.id)}
+                            className="text-sm text-red-500 hover:text-red-700"
+                          >
+                            删除
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

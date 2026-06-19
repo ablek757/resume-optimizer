@@ -629,6 +629,12 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-3">
                       <Link
+                        href="/interview"
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        面试模拟
+                      </Link>
+                      <Link
                         href="/profile"
                         className="text-xs text-blue-600 hover:text-blue-700"
                       >
@@ -861,6 +867,14 @@ export default function Home() {
                         优化版简历
                       </button>
                     </div>
+                  )}
+                  {result && !loading && (
+                    <Link
+                      href="/interview"
+                      className="rounded-md bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+                    >
+                      去模拟面试 →
+                    </Link>
                   )}
                 </div>
                 <div className="flex items-center gap-2">

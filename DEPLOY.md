@@ -35,15 +35,7 @@ ADMIN_PASSWORD=yD6B4dL9SfdC2hJ8RgEw
 
 ```bash
 cd resume-optimizer
-
-# 临时使用 PostgreSQL schema
-cp prisma/schema.postgresql.prisma prisma/schema.prisma
-
-# 运行迁移（需要设置 DATABASE_URL 为你的 Vercel Postgres URL）
-DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npx prisma migrate deploy
-
-# 恢复本地 SQLite schema
-git checkout prisma/schema.prisma
+DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npm run migrate:prod
 ```
 
 把 `YOUR_VERCEL_POSTGRES_URL` 换成你的 Vercel Postgres URL。

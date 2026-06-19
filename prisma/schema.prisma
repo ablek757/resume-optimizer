@@ -56,3 +56,17 @@ model PaymentOrder {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
+
+model OptimizationHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  jobTitle        String   // 目标岗位
+  jobDescription  String?  // 岗位 JD
+  originalText    String   // 原始简历内容摘要
+  result          String   // AI 优化结果
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}

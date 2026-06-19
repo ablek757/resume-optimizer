@@ -4,6 +4,7 @@ import { buildOptimizePrompt } from '@/lib/prompt';
 import { mockOptimizeResult } from '@/lib/mock-response';
 import { getCurrentUser } from '@/lib/auth';
 import { checkQuota, deductQuota } from '@/lib/quota';
+import { prisma } from '@/lib/prisma';
 
 const MAX_RESUME_LENGTH = 8000;
 const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || '3');
@@ -104,6 +105,19 @@ export async function POST(req: NextRequest) {
 
     // 扣除额度（在 AI 调用成功后才扣）
     await deductQuota(user.id);
+
+    // 保存优化历史记录（异步，不阻塞返回）
+    prisma.optimizationHistory.create({
+      data: {
+        userId: user.id,
+        jobTitle: jobTitle.trim(),
+        jobDescription: jobDescription?.trim() || null,
+        originalText: resume.trim().slice(0, 1000),
+        result: content,
+      },
+    }).catch((err) => {
+      console.error('Save optimization history error:', err);
+    });
 
     return NextResponse.json({ result: content });
   } catch (error) {

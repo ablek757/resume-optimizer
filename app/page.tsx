@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import MarkdownRenderer from '@/components/markdown-renderer';
 import AuthModal from '@/components/auth-modal';
 import { Package, DEFAULT_PACKAGES } from '@/lib/payment';
@@ -431,12 +432,20 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={handleLogout}
-                      className="text-xs text-slate-400 hover:text-slate-600"
-                    >
-                      退出登录
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href="/profile"
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        个人中心
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        退出登录
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button

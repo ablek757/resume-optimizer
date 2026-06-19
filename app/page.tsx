@@ -41,6 +41,13 @@ interface ScoreResult {
   suggestions: string[];
 }
 
+interface QuickDiagnoseResult {
+  score: number;
+  summary: string;
+  issues: { title: string; problem: string; fix: string }[];
+  actions: string[];
+}
+
 interface OptimizeResponse {
   result?: string;
   error?: string;
@@ -76,6 +83,9 @@ export default function Home() {
 
   const [score, setScore] = useState<ScoreResult | null>(null);
   const [scoring, setScoring] = useState(false);
+
+  const [quickDiagnose, setQuickDiagnose] = useState<QuickDiagnoseResult | null>(null);
+  const [quickDiagnosing, setQuickDiagnosing] = useState(false);
 
   const [language, setLanguage] = useState<'zh' | 'en' | 'bilingual'>('zh');
   const [resultTab, setResultTab] = useState<'report' | 'resume'>('report');
@@ -348,6 +358,44 @@ export default function Home() {
       console.error('Fetch score error:', err);
     } finally {
       setScoring(false);
+    }
+  };
+
+  const handleQuickDiagnose = async () => {
+    if (!jobTitle.trim() || !resume.trim()) return;
+    setError('');
+    setQuickDiagnose(null);
+    setResult('');
+    setResultTab('report');
+    setQuickDiagnosing(true);
+
+    try {
+      const res = await fetch('/api/quick-diagnose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: jobTitle.trim(),
+          resume: resume.trim(),
+          jobDescription: jobDescription.trim() || undefined,
+          language,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setAuthModalOpen(true);
+          throw new Error(data.error || '请先登录');
+        }
+        throw new Error(data.error || '快速诊断失败');
+      }
+
+      if (data.result) setQuickDiagnose(data.result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '快速诊断失败');
+    } finally {
+      setQuickDiagnosing(false);
     }
   };
 
@@ -823,15 +871,25 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
+                    onClick={handleQuickDiagnose}
+                    disabled={quickDiagnosing || !jobTitle.trim() || !resume.trim()}
+                    className="flex-1 rounded-lg border border-blue-300 bg-blue-50 px-5 py-3 text-center text-base font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:bg-blue-100 disabled:text-blue-400"
+                  >
+                    {quickDiagnosing ? '诊断中...' : '快速诊断（免费）'}
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
                     onClick={fillExample}
-                    className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                    className="flex-1 rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                   >
                     填入示例
                   </button>
                   <button
                     type="button"
                     onClick={clearDraft}
-                    className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                    className="flex-1 rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                   >
                     清空草稿
                   </button>
@@ -1033,7 +1091,105 @@ export default function Home() {
                 </div>
               )}
 
-              {!result && !loading && (
+              {/* Quick Diagnose Card */}
+              {quickDiagnosing && !quickDiagnose && (
+                <div className="mb-5 animate-pulse rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-white"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-white"></div>
+                      <div className="h-3 w-2/3 rounded bg-white"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {quickDiagnose && !loading && (
+                <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-white text-2xl font-bold text-amber-600 shadow-sm">
+                      {quickDiagnose.score}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-slate-700">
+                          快速诊断
+                        </span>
+                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                          免费
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {quickDiagnose.summary}
+                      </p>
+                    </div>
+                  </div>
+
+                  {quickDiagnose.issues.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        3 个最致命问题
+                      </p>
+                      <ul className="space-y-2">
+                        {quickDiagnose.issues.map((issue, idx) => (
+                          <li
+                            key={idx}
+                            className="rounded-lg bg-white p-3 text-sm"
+                          >
+                            <p className="font-medium text-slate-900">
+                              {idx + 1}. {issue.title}
+                            </p>
+                            <p className="mt-0.5 text-slate-600">
+                              {issue.problem}
+                            </p>
+                            <p className="mt-1 text-xs text-green-700">
+                              建议：{issue.fix}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {quickDiagnose.actions.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        立即行动
+                      </p>
+                      <ul className="space-y-1.5">
+                        {quickDiagnose.actions.map((action, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-slate-700"
+                          >
+                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500"></span>
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        setQuickDiagnose(null);
+                        setResultTab('report');
+                        scrollToEditor();
+                        const submitButton = document.querySelector(
+                          'button[type="submit"]'
+                        ) as HTMLButtonElement | null;
+                        submitButton?.focus();
+                      }}
+                      className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                    >
+                      查看完整优化报告 →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!result && !loading && !quickDiagnose && (
                 <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
                   <p className="text-slate-500">填写左侧信息后点击「开始优化」</p>
                   <p className="mt-1 text-sm text-slate-400">

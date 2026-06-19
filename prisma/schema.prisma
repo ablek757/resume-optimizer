@@ -92,3 +92,20 @@ model JobApplication {
   @@index([status])
   @@index([appliedAt])
 }
+
+model ResumeVersion {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  jobTitle        String
+  jobDescription  String?
+  originalText    String?
+  optimizedText   String
+  source          String   // optimize / jd-rewrite / manual
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isDefault])
+}

@@ -6,6 +6,11 @@ import MarkdownRenderer from '@/components/markdown-renderer';
 import AuthModal from '@/components/auth-modal';
 import ResumeTemplate, { ResumeTemplateType } from '@/components/resume-template';
 import Onboarding, { useOnboarding } from '@/components/onboarding';
+import ResumeVersionSelector from '@/components/resume-version-selector';
+import SaveVersionButton from '@/components/save-version-button';
+import JDRewritePanel from '@/components/jd-rewrite-panel';
+import ATSHeatmap from '@/components/ats-heatmap';
+import { ATSReport } from '@/lib/ats-checker';
 import { Package, DEFAULT_PACKAGES } from '@/lib/payment';
 import {
   copyToClipboard,
@@ -87,6 +92,11 @@ export default function Home() {
   const [quickDiagnose, setQuickDiagnose] = useState<QuickDiagnoseResult | null>(null);
   const [quickDiagnosing, setQuickDiagnosing] = useState(false);
 
+  const [showJDRewrite, setShowJDRewrite] = useState(false);
+
+  const [atsReport, setAtsReport] = useState<ATSReport | null>(null);
+  const [atsLoading, setAtsLoading] = useState(false);
+
   const [language, setLanguage] = useState<'zh' | 'en' | 'bilingual'>('zh');
   const [resultTab, setResultTab] = useState<'report' | 'resume'>('report');
   const [editedResume, setEditedResume] = useState('');
@@ -134,8 +144,49 @@ export default function Home() {
     }
   };
 
+  const handleLoadVersion = (version: {
+    jobTitle: string;
+    jobDescription: string;
+    resume: string;
+    optimizedText?: string;
+  }) => {
+    setJobTitle(version.jobTitle);
+    setJobDescription(version.jobDescription);
+    setResume(version.resume);
+    setShowJDRewrite(false);
+    if (version.optimizedText) {
+      setResult(version.optimizedText);
+      setResultTab('resume');
+    } else {
+      setResult('');
+      setResultTab('report');
+    }
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          jobTitle: version.jobTitle,
+          jobDescription: version.jobDescription,
+          resume: version.resume,
+        })
+      );
+      localStorage.removeItem('resume_optimizer_loaded_version');
+    } catch (err) {
+      console.error('Save draft error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchUser();
+    try {
+      const loaded = localStorage.getItem('resume_optimizer_loaded_version');
+      if (loaded) {
+        const version = JSON.parse(loaded);
+        handleLoadVersion(version);
+      }
+    } catch (err) {
+      console.error('Load version error:', err);
+    }
   }, []);
 
   // Auto save draft
@@ -365,7 +416,9 @@ export default function Home() {
     if (!jobTitle.trim() || !resume.trim()) return;
     setError('');
     setQuickDiagnose(null);
+    setAtsReport(null);
     setResult('');
+    setShowJDRewrite(false);
     setResultTab('report');
     setQuickDiagnosing(true);
 
@@ -399,11 +452,47 @@ export default function Home() {
     }
   };
 
+  const handleATSCheck = async () => {
+    if (!resume.trim()) return;
+    setError('');
+    setAtsReport(null);
+    setAtsLoading(true);
+
+    try {
+      const res = await fetch('/api/ats-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resume: resume.trim(),
+          jobDescription: jobDescription.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setAuthModalOpen(true);
+          throw new Error(data.error || '请先登录');
+        }
+        throw new Error(data.error || 'ATS 检测失败');
+      }
+
+      if (data.report) setAtsReport(data.report);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ATS 检测失败');
+    } finally {
+      setAtsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setResult('');
     setScore(null);
+    setAtsReport(null);
+    setShowJDRewrite(false);
     setLoading(true);
 
     // Start scoring in parallel (does not block the stream)
@@ -689,6 +778,12 @@ export default function Home() {
                         投递追踪
                       </Link>
                       <Link
+                        href="/resumes"
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        简历版本
+                      </Link>
+                      <Link
                         href="/profile"
                         className="text-xs text-blue-600 hover:text-blue-700"
                       >
@@ -772,6 +867,11 @@ export default function Home() {
                     rows={4}
                     className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
+                  {user && (
+                    <div className="mt-2 flex justify-end">
+                      <ResumeVersionSelector onLoad={handleLoadVersion} />
+                    </div>
+                  )}
                 </div>
 
                 {/* File Upload */}
@@ -877,6 +977,28 @@ export default function Home() {
                   >
                     {quickDiagnosing ? '诊断中...' : '快速诊断（免费）'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowJDRewrite(true);
+                      setResultTab('report');
+                    }}
+                    disabled={!jobTitle.trim() || !resume.trim() || !jobDescription.trim()}
+                    className="flex-1 rounded-lg border border-indigo-300 bg-indigo-50 px-5 py-3 text-center text-base font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:bg-indigo-100 disabled:text-indigo-400"
+                  >
+                    JD 关键词改写
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleATSCheck}
+                    disabled={atsLoading || !resume.trim()}
+                    className="flex-1 rounded-lg border border-emerald-300 bg-emerald-50 px-5 py-3 text-center text-base font-medium text-emerald-700 shadow-sm transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:bg-emerald-100 disabled:text-emerald-400"
+                  >
+                    {atsLoading ? '检测中...' : 'ATS 检测（免费）'}
+                  </button>
+                  <div className="flex-1"></div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
@@ -1189,7 +1311,37 @@ export default function Home() {
                 </div>
               )}
 
-              {!result && !loading && !quickDiagnose && (
+              {atsLoading && !atsReport && (
+                <div className="mb-5 animate-pulse rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-white"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-white"></div>
+                      <div className="h-3 w-2/3 rounded bg-white"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {atsReport && !loading && (
+                <div className="mb-5">
+                  <ATSHeatmap report={atsReport} />
+                </div>
+              )}
+
+              {showJDRewrite && !loading && (
+                <div className="mb-5">
+                  <JDRewritePanel
+                    jobTitle={jobTitle}
+                    resume={resume}
+                    jobDescription={jobDescription}
+                    language={language}
+                    onClose={() => setShowJDRewrite(false)}
+                  />
+                </div>
+              )}
+
+              {!result && !loading && !quickDiagnose && !showJDRewrite && !atsReport && (
                 <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
                   <p className="text-slate-500">填写左侧信息后点击「开始优化」</p>
                   <p className="mt-1 text-sm text-slate-400">
@@ -1262,10 +1414,20 @@ export default function Home() {
                         )}
                         <button
                           onClick={resetEditedResume}
-                          className="ml-auto rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                          className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
                         >
                           重置修改
                         </button>
+                        {user && (
+                          <SaveVersionButton
+                            title={`${jobTitle} - 优化版`}
+                            jobTitle={jobTitle}
+                            jobDescription={jobDescription}
+                            originalText={resume}
+                            optimizedText={editedResume}
+                            source="optimize"
+                          />
+                        )}
                       </div>
 
                       <div>

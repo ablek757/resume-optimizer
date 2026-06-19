@@ -4,6 +4,8 @@ import PDFParser from 'pdf2json';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+export const maxDuration = 60;
+
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
     const pdfParser = new (PDFParser as unknown as new (

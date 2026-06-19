@@ -6,6 +6,8 @@ import { recognizePaymentScreenshot } from '@/lib/vision';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();

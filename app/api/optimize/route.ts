@@ -8,6 +8,8 @@ import { checkQuota, deductQuota } from '@/lib/quota';
 const MAX_RESUME_LENGTH = 8000;
 const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || '3');
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const { jobTitle, resume, jobDescription } = await req.json();

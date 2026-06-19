@@ -19,11 +19,11 @@ fs.copyFileSync(schemaPath, backupPath);
 fs.copyFileSync(pgSchemaPath, schemaPath);
 
 try {
-  console.log('Running prisma migrate deploy...');
-  execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
-  console.log('Migration completed successfully.');
+  console.log('Running prisma db push...');
+  execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit', env: process.env });
+  console.log('Database sync completed successfully.');
 } catch (error) {
-  console.error('Migration failed:', error.message);
+  console.error('Database sync failed:', error.message);
   process.exitCode = 1;
 } finally {
   console.log('Restoring local SQLite schema...');

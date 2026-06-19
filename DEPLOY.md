@@ -29,9 +29,9 @@ ADMIN_PASSWORD=yD6B4dL9SfdC2hJ8RgEw
 
 - 点击 **Deploy**
 
-## 3. 运行数据库迁移
+## 3. 同步线上数据库
 
-部署完成后，在本地运行以下命令创建线上数据库表：
+部署完成后，在本地运行以下命令把数据库表同步到线上：
 
 ```bash
 cd resume-optimizer
@@ -39,6 +39,8 @@ DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npm run migrate:prod
 ```
 
 把 `YOUR_VERCEL_POSTGRES_URL` 换成你的 Vercel Postgres URL。
+
+> 说明：本地开发使用 SQLite，线上使用 Vercel Postgres。由于两种数据库的迁移历史不通用，线上通过 `prisma db push` 同步 schema。
 
 ## 4. 验证
 

@@ -1393,7 +1393,7 @@ export default function Home() {
                         <span className="text-xs font-medium text-slate-500">
                           选择模板：
                         </span>
-                        {(['classic', 'modern', 'minimal'] as ResumeTemplateType[]).map(
+                        {(['classic', 'modern', 'minimal', 'professional'] as ResumeTemplateType[]).map(
                           (t) => (
                             <button
                               key={t}
@@ -1408,7 +1408,9 @@ export default function Home() {
                                 ? '经典简洁'
                                 : t === 'modern'
                                 ? '现代专业'
-                                : '极简紧凑'}
+                                : t === 'minimal'
+                                ? '极简紧凑'
+                                : '专业商务'}
                             </button>
                           )
                         )}
@@ -1429,6 +1431,9 @@ export default function Home() {
                           />
                         )}
                       </div>
+                      <p className="text-xs text-slate-500">
+                        导出 PDF 按 A4 尺寸生成，建议控制在一页以内；内容过长会自动分页。
+                      </p>
 
                       <div>
                         <label className="block text-xs font-medium text-slate-500">

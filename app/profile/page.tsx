@@ -205,7 +205,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Link
             href="/interview"
             className="rounded-2xl bg-blue-50 p-5 ring-1 ring-blue-100 transition-colors hover:bg-blue-100"
@@ -219,6 +219,13 @@ export default function ProfilePage() {
           >
             <p className="font-semibold text-green-800">投递追踪</p>
             <p className="mt-1 text-xs text-green-600">记录投递进度，把握求职节奏</p>
+          </Link>
+          <Link
+            href="/interview/review"
+            className="rounded-2xl bg-purple-50 p-5 ring-1 ring-purple-100 transition-colors hover:bg-purple-100"
+          >
+            <p className="font-semibold text-purple-800">面试复盘</p>
+            <p className="mt-1 text-xs text-purple-600">上传录音，AI 分析面试表现</p>
           </Link>
           <Link
             href="/resumes"

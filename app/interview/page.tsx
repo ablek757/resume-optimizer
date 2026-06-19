@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import InterviewChat, { ChatMessage } from '@/components/interview-chat';
 
 interface User {
@@ -169,6 +170,25 @@ export default function InterviewPage() {
     setError('');
   };
 
+  const router = useRouter();
+
+  const handleReview = () => {
+    try {
+      localStorage.setItem(
+        'resume_optimizer_interview_for_review',
+        JSON.stringify({
+          jobTitle: jobTitle.trim(),
+          jobDescription: jobDescription.trim(),
+          resume: resume.trim(),
+          messages,
+        })
+      );
+    } catch (err) {
+      console.error('Save interview review draft error:', err);
+    }
+    router.push('/interview/review');
+  };
+
   if (loadingUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -296,6 +316,18 @@ export default function InterviewPage() {
                   </select>
                 </div>
 
+                <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                  <p className="text-sm text-slate-700">
+                    也可以{' '}
+                    <Link
+                      href="/interview/review"
+                      className="font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      上传真实面试录音进行复盘分析 →
+                    </Link>
+                  </p>
+                </div>
+
                 <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4">
                   <div className="text-sm text-slate-700">
                     {user.hasSubscription ? (
@@ -350,6 +382,7 @@ export default function InterviewPage() {
               finished={finished}
               onSend={sendAnswer}
               onFinish={resetInterview}
+              onReview={handleReview}
             />
 
             {error && (

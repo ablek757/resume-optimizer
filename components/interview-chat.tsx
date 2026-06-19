@@ -13,6 +13,7 @@ interface InterviewChatProps {
   finished: boolean;
   onSend: (text: string) => void;
   onFinish: () => void;
+  onReview?: () => void;
 }
 
 interface SpeechRecognitionType {
@@ -63,6 +64,7 @@ export default function InterviewChat({
   finished,
   onSend,
   onFinish,
+  onReview,
 }: InterviewChatProps) {
   const [input, setInput] = useState('');
   const [voiceMode, setVoiceMode] = useState(false);
@@ -300,12 +302,22 @@ export default function InterviewChat({
         {finished ? (
           <div className="text-center">
             <p className="mb-3 text-sm text-slate-600">面试已结束</p>
-            <button
-              onClick={onFinish}
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              返回准备区
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button
+                onClick={onFinish}
+                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                返回准备区
+              </button>
+              {onReview && (
+                <button
+                  onClick={onReview}
+                  className="rounded-lg border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  复盘本次模拟面试
+                </button>
+              )}
+            </div>
           </div>
         ) : voiceMode ? (
           <div className="space-y-3">

@@ -8,14 +8,14 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
-  credits            Int       @default(0)
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  credits            Int      @default(0)
   subscriptionEndsAt DateTime?
-  dailyFreeUses      Int       @default(0)
-  lastFreeUseDate    String? // YYYY-MM-DD
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  dailyFreeUses      Int      @default(0)
+  lastFreeUseDate    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 model VerificationCode {
@@ -29,12 +29,30 @@ model VerificationCode {
 }
 
 model RedemptionCode {
-  id        String    @id @default(cuid())
-  code      String    @unique
-  type      String // "credits" | "subscription_days"
-  value     Int // number of credits or days
-  usedBy    String? // user id
-  usedAt    DateTime?
-  expiresAt DateTime?
-  createdAt DateTime  @default(now())
+  id             String         @id @default(cuid())
+  code           String         @unique
+  type           String
+  value          Int
+  usedBy         String?
+  usedAt         DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  paymentOrders  PaymentOrder[]
+}
+
+model PaymentOrder {
+  id                String          @id @default(cuid())
+  userId            String
+  amount            Float?
+  packageName       String?
+  packageType       String?
+  packageValue      Int?
+  screenshot        String
+  recognizedText    String?
+  status            String
+  redemptionCodeId  String?
+  redemptionCode    RedemptionCode? @relation(fields: [redemptionCodeId], references: [id])
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }

@@ -31,11 +31,22 @@ ADMIN_PASSWORD=yD6B4dL9SfdC2hJ8RgEw
 
 ## 3. 运行数据库迁移
 
-部署完成后，在本地把 `.env` 文件中的 `DATABASE_URL` 改成 Vercel Postgres URL，然后运行：
+部署完成后，在本地运行以下命令创建线上数据库表：
 
 ```bash
-npx prisma migrate deploy
+cd resume-optimizer
+
+# 临时使用 PostgreSQL schema
+cp prisma/schema.postgresql.prisma prisma/schema.prisma
+
+# 运行迁移（需要设置 DATABASE_URL 为你的 Vercel Postgres URL）
+DATABASE_URL=YOUR_VERCEL_POSTGRES_URL npx prisma migrate deploy
+
+# 恢复本地 SQLite schema
+git checkout prisma/schema.prisma
 ```
+
+把 `YOUR_VERCEL_POSTGRES_URL` 换成你的 Vercel Postgres URL。
 
 ## 4. 验证
 

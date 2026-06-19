@@ -12,6 +12,8 @@ function generateCode(): string {
   return code;
 }
 
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const authHeader = req.headers.get('Authorization');
 

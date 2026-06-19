@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminPassword, unauthorizedResponse } from '@/lib/admin';
 import { getPackages, approveOrder } from '@/lib/payment';
 
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('Authorization');
 

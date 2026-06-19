@@ -63,12 +63,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Mock 模式：不调用真实 API，直接返回示例结果（用于演示或余额不足时）
-    if (process.env.MOCK_MODE === 'true') {
-      await deductQuota(user.id);
-      return NextResponse.json({ result: mockOptimizeResult });
-    }
-
     const apiKey = process.env.AI_API_KEY || process.env.KIMI_API_KEY;
     const baseURL = process.env.AI_BASE_URL || process.env.KIMI_BASE_URL || 'https://api.deepseek.com/v1';
     const model = process.env.AI_MODEL || process.env.KIMI_MODEL || 'deepseek-chat';
@@ -80,46 +74,97 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const prompt = buildOptimizePrompt(jobTitle.trim(), resume.trim(), jobDescription?.trim());
+
+    // Mock 模式：以流的形式返回示例结果
+    if (process.env.MOCK_MODE === 'true') {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          for (const char of mockOptimizeResult) {
+            controller.enqueue(encoder.encode(char));
+            // 模拟打字延迟，避免一次性发送
+            await new Promise((resolve) => setTimeout(resolve, 1));
+          }
+          controller.close();
+          await deductQuota(user.id);
+          prisma.optimizationHistory.create({
+            data: {
+              userId: user.id,
+              jobTitle: jobTitle.trim(),
+              jobDescription: jobDescription?.trim() || null,
+              originalText: resume.trim().slice(0, 1000),
+              result: mockOptimizeResult,
+            },
+          }).catch((err) => {
+            console.error('Save optimization history error:', err);
+          });
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
     const client = new OpenAI({
       apiKey,
       baseURL,
     });
 
-    const prompt = buildOptimizePrompt(jobTitle.trim(), resume.trim(), jobDescription?.trim());
-
-    const response = await client.chat.completions.create({
+    const aiStream = await client.chat.completions.create({
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-      stream: false,
+      stream: true,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullContent = '';
+        try {
+          for await (const chunk of aiStream) {
+            const content = chunk.choices[0]?.delta?.content;
+            if (content) {
+              fullContent += content;
+              controller.enqueue(encoder.encode(content));
+            }
+          }
 
-    if (!content) {
-      return NextResponse.json(
-        { error: 'AI 未返回有效内容，请稍后重试' },
-        { status: 500 }
-      );
-    }
+          controller.close();
 
-    // 扣除额度（在 AI 调用成功后才扣）
-    await deductQuota(user.id);
-
-    // 保存优化历史记录（异步，不阻塞返回）
-    prisma.optimizationHistory.create({
-      data: {
-        userId: user.id,
-        jobTitle: jobTitle.trim(),
-        jobDescription: jobDescription?.trim() || null,
-        originalText: resume.trim().slice(0, 1000),
-        result: content,
+          // 流结束后扣除额度并保存历史（不阻塞响应）
+          await deductQuota(user.id);
+          prisma.optimizationHistory.create({
+            data: {
+              userId: user.id,
+              jobTitle: jobTitle.trim(),
+              jobDescription: jobDescription?.trim() || null,
+              originalText: resume.trim().slice(0, 1000),
+              result: fullContent,
+            },
+          }).catch((err) => {
+            console.error('Save optimization history error:', err);
+          });
+        } catch (err) {
+          console.error('Stream error:', err);
+          controller.error(err);
+        }
       },
-    }).catch((err) => {
-      console.error('Save optimization history error:', err);
     });
 
-    return NextResponse.json({ result: content });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Optimize error:', error);
 

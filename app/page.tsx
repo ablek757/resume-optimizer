@@ -22,6 +22,14 @@ interface User {
   dailyFreeUses: number;
 }
 
+interface ScoreResult {
+  score: number;
+  matchPercentage: number;
+  summary: string;
+  keywords: { word: string; matched: boolean; suggestion?: string }[];
+  suggestions: string[];
+}
+
 interface OptimizeResponse {
   result?: string;
   error?: string;
@@ -33,14 +41,30 @@ interface OptimizeResponse {
 }
 
 const FREE_DAILY_LIMIT = 3;
+const DRAFT_KEY = 'resume_optimizer_draft';
+
+function loadDraftValue(key: 'jobTitle' | 'jobDescription' | 'resume'): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return '';
+    const draft = JSON.parse(raw);
+    return typeof draft[key] === 'string' ? draft[key] : '';
+  } catch {
+    return '';
+  }
+}
 
 export default function Home() {
-  const [jobTitle, setJobTitle] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [resume, setResume] = useState('');
+  const [jobTitle, setJobTitle] = useState(() => loadDraftValue('jobTitle'));
+  const [jobDescription, setJobDescription] = useState(() => loadDraftValue('jobDescription'));
+  const [resume, setResume] = useState(() => loadDraftValue('resume'));
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [score, setScore] = useState<ScoreResult | null>(null);
+  const [scoring, setScoring] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -68,9 +92,8 @@ export default function Home() {
   const resultRef = useRef<HTMLDivElement>(null);
   const [copyMessage, setCopyMessage] = useState('');
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
+  // Abort controller for stopping generation
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchUser = async () => {
     try {
@@ -81,6 +104,30 @@ export default function Home() {
       console.error('Fetch user error:', err);
     }
   };
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  // Auto save draft
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            jobTitle,
+            jobDescription,
+            resume,
+          })
+        );
+      } catch (err) {
+        console.error('Save draft error:', err);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [jobTitle, jobDescription, resume]);
 
   const scrollToEditor = () => {
     editorRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -234,11 +281,59 @@ export default function Home() {
     setPaymentScreenshotName('');
   };
 
+  const clearDraft = () => {
+    setJobTitle('');
+    setJobDescription('');
+    setResume('');
+    setUploadedFileName('');
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (err) {
+      console.error('Clear draft error:', err);
+    }
+  };
+
+  const fetchScore = async () => {
+    setScoring(true);
+    setScore(null);
+    try {
+      const res = await fetch('/api/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: jobTitle.trim(),
+          resume: resume.trim(),
+          jobDescription: jobDescription.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('Score error:', data.error);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.score) setScore(data.score);
+    } catch (err) {
+      console.error('Fetch score error:', err);
+    } finally {
+      setScoring(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setResult('');
+    setScore(null);
     setLoading(true);
+
+    // Start scoring in parallel (does not block the stream)
+    fetchScore();
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       const res = await fetch('/api/optimize', {
@@ -249,11 +344,11 @@ export default function Home() {
           resume: resume.trim(),
           jobDescription: jobDescription.trim() || undefined,
         }),
+        signal: abortController.signal,
       });
 
-      const data: OptimizeResponse = await res.json();
-
       if (!res.ok) {
+        const data: OptimizeResponse = await res.json();
         if (res.status === 401) {
           setAuthModalOpen(true);
           throw new Error(data.error || '请先登录');
@@ -267,17 +362,46 @@ export default function Home() {
         throw new Error(data.error || '请求失败');
       }
 
-      if (data.result) {
-        setResult(data.result);
-        fetchUser();
-      } else {
-        throw new Error('未返回优化结果');
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('无法读取响应流');
       }
+
+      const decoder = new TextDecoder();
+      let done = false;
+      let fullResult = '';
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          fullResult += chunk;
+          setResult(fullResult);
+        }
+      }
+
+      // Optimization completed: clear draft and refresh user info
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch (err) {
+        console.error('Clear draft after success error:', err);
+      }
+      fetchUser();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发生未知错误');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // User manually stopped generation
+      } else {
+        setError(err instanceof Error ? err.message : '发生未知错误');
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleFile = useCallback(async (file: File) => {
@@ -600,6 +724,13 @@ export default function Home() {
                   >
                     填入示例
                   </button>
+                  <button
+                    type="button"
+                    onClick={clearDraft}
+                    className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-base font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                  >
+                    清空草稿
+                  </button>
                 </div>
               </form>
 
@@ -614,49 +745,138 @@ export default function Home() {
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">优化结果</h2>
-                {result && !loading && (
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  {loading && (
                     <button
-                      onClick={handleCopy}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      onClick={handleStop}
+                      className="rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
                     >
-                      复制
+                      停止生成
                     </button>
-                    <button
-                      onClick={handleDownloadMarkdown}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      Markdown
-                    </button>
-                    <button
-                      onClick={handleExportWord}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      Word
-                    </button>
-                    <button
-                      onClick={handleExportPDF}
-                      className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      PDF
-                    </button>
-                  </div>
-                )}
+                  )}
+                  {result && !loading && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleCopy}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        复制
+                      </button>
+                      <button
+                        onClick={handleDownloadMarkdown}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        Markdown
+                      </button>
+                      <button
+                        onClick={handleExportWord}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        Word
+                      </button>
+                      <button
+                        onClick={handleExportPDF}
+                        className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                      >
+                        PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               {copyMessage && (
                 <p className="mb-3 text-xs text-green-600">{copyMessage}</p>
               )}
 
+              {/* Score card */}
+              {scoring && !score && (
+                <div className="mb-5 animate-pulse rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-white"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-white"></div>
+                      <div className="h-3 w-2/3 rounded bg-white"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {score && (
+                <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-white text-2xl font-bold text-blue-600 shadow-sm">
+                      {score.score}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-slate-700">
+                          简历评分
+                        </span>
+                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                          JD 匹配度 {score.matchPercentage}%
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {score.summary}
+                      </p>
+                    </div>
+                  </div>
+
+                  {score.keywords.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        关键词匹配
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {score.keywords.map((k, idx) => (
+                          <span
+                            key={idx}
+                            title={k.suggestion || ''}
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                              k.matched
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {k.word}
+                            {k.matched ? ' ✓' : ' ✗'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {score.suggestions.length > 0 && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        改进建议
+                      </p>
+                      <ul className="space-y-1.5">
+                        {score.suggestions.map((s, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-slate-700"
+                          >
+                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500"></span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!result && !loading && (
                 <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
-                  <p className="text-slate-500">填写左侧信息后点击"开始优化"</p>
+                  <p className="text-slate-500">填写左侧信息后点击「开始优化」</p>
                   <p className="mt-1 text-sm text-slate-400">
                     结果将在这里展示
                   </p>
                 </div>
               )}
 
-              {loading && (
+              {loading && !result && (
                 <div className="flex h-96 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
                   <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
                   <p className="text-slate-600">AI 正在分析你的简历...</p>
@@ -666,9 +886,12 @@ export default function Home() {
                 </div>
               )}
 
-              {result && !loading && (
-                <div className="max-h-[800px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-5">
+              {(result || (loading && result)) && (
+                <div className="relative max-h-[800px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-5">
                   <MarkdownRenderer ref={resultRef} content={result} />
+                  {loading && (
+                    <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-blue-600"></span>
+                  )}
                 </div>
               )}
             </div>

@@ -48,7 +48,22 @@ interface Stats {
   totalOptimizations: number;
 }
 
-type Tab = 'overview' | 'payments' | 'codes' | 'users';
+type Tab = 'overview' | 'analytics' | 'payments' | 'codes' | 'users';
+
+interface Analytics {
+  today: {
+    newUsers: number;
+    optimizations: number;
+    revenue: number;
+  };
+  totals: {
+    users: number;
+    optimizations: number;
+    orders: number;
+    revenue: number;
+    pendingOrders: number;
+  };
+}
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
@@ -57,6 +72,7 @@ export default function AdminPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [codes, setCodes] = useState<RedemptionCode[]>([]);
   const [payments, setPayments] = useState<PaymentOrder[]>([]);
@@ -72,39 +88,20 @@ export default function AdminPage() {
 
   const authHeader = `Bearer ${password}`;
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchStats();
-      fetchUsers();
-      fetchCodes();
-      fetchPayments();
-    }
-  }, [isAuthenticated]);
-
-  const login = async () => {
-    setError('');
-    try {
-      const res = await fetch('/api/admin/stats', {
-        headers: { Authorization: authHeader },
-      });
-
-      if (!res.ok) {
-        throw new Error('密码错误');
-      }
-
-      setIsAuthenticated(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败');
-      setIsAuthenticated(false);
-    }
-  };
-
   const fetchStats = async () => {
     const res = await fetch('/api/admin/stats', {
       headers: { Authorization: authHeader },
     });
     const data = await res.json();
     setStats(data);
+  };
+
+  const fetchAnalytics = async () => {
+    const res = await fetch('/api/admin/analytics', {
+      headers: { Authorization: authHeader },
+    });
+    const data = await res.json();
+    setAnalytics(data);
   };
 
   const fetchUsers = async () => {
@@ -132,6 +129,34 @@ export default function AdminPage() {
     });
     const data = await res.json();
     setPayments(data.payments || []);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchStats();
+      fetchAnalytics();
+      fetchUsers();
+      fetchCodes();
+      fetchPayments();
+    }
+  }, [isAuthenticated]);
+
+  const login = async () => {
+    setError('');
+    try {
+      const res = await fetch('/api/admin/stats', {
+        headers: { Authorization: authHeader },
+      });
+
+      if (!res.ok) {
+        throw new Error('密码错误');
+      }
+
+      setIsAuthenticated(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '登录失败');
+      setIsAuthenticated(false);
+    }
   };
 
   useEffect(() => {
@@ -269,6 +294,7 @@ export default function AdminPage() {
         <div className="mb-8 flex gap-2 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
           {[
             { key: 'overview', label: '概览' },
+            { key: 'analytics', label: '数据看板' },
             { key: 'payments', label: '订单审核' },
             { key: 'codes', label: '兑换码' },
             { key: 'users', label: '用户' },
@@ -356,6 +382,65 @@ export default function AdminPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Analytics */}
+        {activeTab === 'analytics' && (
+          <>
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">今日新增用户</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.today.newUsers ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">今日优化次数</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.today.optimizations ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">今日收入</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  ¥{analytics ? Math.round(analytics.today.revenue) : '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">待审核订单</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.totals.pendingOrders ?? '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">总用户数</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.totals.users ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">总优化次数</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.totals.optimizations ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">总订单数</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {analytics?.totals.orders ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <p className="text-sm text-slate-500">累计收入</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  ¥{analytics ? Math.round(analytics.totals.revenue) : '-'}
+                </p>
               </div>
             </div>
           </>

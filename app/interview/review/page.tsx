@@ -2,13 +2,16 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useUser } from '@/hooks/use-user';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
 import InterviewReviewReport from '@/components/interview-review-report';
 import { InterviewReviewResult } from '@/lib/interview-review-prompt';
-
-interface User {
-  id: string;
-  email: string;
-}
+import { Upload, ArrowLeft, Loader2 } from 'lucide-react';
 
 const MAX_FILE_SIZE_MB = 3;
 const ALLOWED_TYPES = [
@@ -35,8 +38,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function InterviewReviewPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const { user, loading: loadingUser } = useUser();
 
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -58,14 +60,6 @@ export default function InterviewReviewPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) setUser(data.user);
-      })
-      .catch((err) => console.error('Fetch user error:', err))
-      .finally(() => setLoadingUser(false));
-
     try {
       const pending = localStorage.getItem('resume_optimizer_interview_for_review');
       if (pending) {
@@ -221,76 +215,82 @@ export default function InterviewReviewPage() {
 
   if (loadingUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-        <h1 className="text-2xl font-bold text-slate-900">请先登录</h1>
-        <p className="mt-2 text-slate-600">登录后使用面试复盘分析</p>
-        <Link
-          href="/"
-          className="mt-6 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
-        >
-          返回首页登录
-        </Link>
+      <div className="flex min-h-[50vh] items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-sm text-center">
+          <CardHeader>
+            <CardTitle>请先登录</CardTitle>
+            <CardDescription>登录后使用面试复盘分析</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/">
+              <Button>返回首页登录</Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">面试复盘分析</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              上传真实面试录音，AI 帮你分析回答内容、表达和逻辑
-            </p>
-          </div>
-          <Link
-            href="/interview"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+    <div className="space-y-6">
+      <PageHeader
+        title="面试复盘分析"
+        description="上传真实面试录音，AI 帮你分析回答内容、表达和逻辑"
+      >
+        <Link href="/interview">
+          <Button variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
             返回面试模拟
-          </Link>
-        </div>
+          </Button>
+        </Link>
+      </PageHeader>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <Card>
+        <CardHeader>
+          <CardTitle>开始复盘</CardTitle>
+          <CardDescription>上传录音并补充岗位信息，AI 将生成复盘报告</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
           {pendingTextReview && (
-            <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
-              <p className="text-sm text-slate-700">
+            <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+              <p className="text-sm text-foreground">
                 已加载刚刚的模拟面试记录，可以直接进行文字复盘。
               </p>
-              <button
+              <Button
                 type="button"
                 onClick={handleTextReview}
                 disabled={analyzing}
-                className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+                className="mt-3"
+                size="sm"
               >
                 {analyzing ? '分析中...' : '复盘本次模拟面试（免费）'}
-              </button>
+              </Button>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                上传面试录音 <span className="text-red-500">*</span>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                上传面试录音 <span className="text-destructive">*</span>
               </label>
               <div
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`mt-1 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
                   isDragging
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-muted/50 hover:bg-accent/50'
                 }`}
               >
                 <input
@@ -300,30 +300,18 @@ export default function InterviewReviewPage() {
                   onChange={onFileChange}
                   className="hidden"
                 />
-                <svg
-                  className="mb-2 h-10 w-10 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                </svg>
+                <Upload className="mb-2 h-10 w-10 text-muted-foreground" />
                 {file ? (
                   <div className="text-center">
-                    <p className="text-sm font-medium text-blue-700">{file.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="text-sm font-medium text-primary">{file.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {(file.size / 1024 / 1024).toFixed(2)} MB · 点击重新上传
                     </p>
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-sm font-medium text-slate-700">点击或拖拽上传录音</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="text-sm font-medium text-foreground">点击或拖拽上传录音</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       支持 mp3、wav、m4a、webm，最大 {MAX_FILE_SIZE_MB}MB
                     </p>
                   </div>
@@ -331,70 +319,64 @@ export default function InterviewReviewPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                目标岗位 <span className="text-red-500">*</span>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                目标岗位 <span className="text-destructive">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
                 placeholder="例如：产品经理"
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">岗位 JD（可选）</label>
-              <textarea
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">岗位 JD（可选）</label>
+              <Textarea
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="粘贴招聘要求，复盘会更精准"
                 rows={4}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">你的简历（可选）</label>
-              <textarea
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">你的简历（可选）</label>
+              <Textarea
                 value={resume}
                 onChange={(e) => setResume(e.target.value)}
                 placeholder="粘贴简历内容，AI 会结合你的经历做更精准的复盘"
                 rows={6}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={!file || !jobTitle.trim() || analyzing}
-              className="w-full rounded-lg bg-blue-600 px-5 py-3 text-center text-base font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="w-full"
+              size="lg"
             >
               {analyzing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   AI 正在分析录音...
-                </span>
+                </>
               ) : (
                 '开始复盘分析（消耗 1 次额度）'
               )}
-            </button>
+            </Button>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
           </form>
-        </div>
+        </CardContent>
+      </Card>
 
-        {report && (
-          <div className="mt-8">
-            <InterviewReviewReport report={report} />
-          </div>
-        )}
-      </div>
+      {report && <InterviewReviewReport report={report} />}
     </div>
   );
 }

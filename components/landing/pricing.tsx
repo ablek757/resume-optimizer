@@ -1,5 +1,8 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
+
 const packages = [
   {
     name: '免费体验',
@@ -33,11 +36,11 @@ interface PricingProps {
 
 export default function Pricing({ onStart }: PricingProps) {
   return (
-    <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+    <section id="pricing" className="bg-background px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">简单透明的价格</h2>
-          <p className="mt-4 text-slate-600">先免费体验，满意再付费</p>
+          <h2 className="text-3xl font-bold text-foreground">简单透明的价格</h2>
+          <p className="mt-4 text-muted-foreground">先免费体验，满意再付费</p>
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
           {packages.map((pkg) => (
@@ -45,14 +48,14 @@ export default function Pricing({ onStart }: PricingProps) {
               key={pkg.name}
               className={`rounded-2xl p-6 ${
                 pkg.highlighted
-                  ? 'bg-slate-900 text-white shadow-xl ring-2 ring-blue-500'
-                  : 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  ? 'bg-primary text-primary-foreground shadow-xl ring-1 ring-primary'
+                  : 'bg-card text-foreground shadow-sm ring-1 ring-border'
               }`}
             >
               <h3 className="text-lg font-semibold">{pkg.name}</h3>
               <p
                 className={`mt-2 text-sm ${
-                  pkg.highlighted ? 'text-slate-300' : 'text-slate-500'
+                  pkg.highlighted ? 'text-primary-foreground/80' : 'text-muted-foreground'
                 }`}
               >
                 {pkg.description}
@@ -61,7 +64,7 @@ export default function Pricing({ onStart }: PricingProps) {
                 <span className="text-4xl font-bold">{pkg.price}</span>
                 <span
                   className={`ml-1 text-sm ${
-                    pkg.highlighted ? 'text-slate-400' : 'text-slate-500'
+                    pkg.highlighted ? 'text-primary-foreground/70' : 'text-muted-foreground'
                   }`}
                 >
                   {pkg.period}
@@ -70,24 +73,14 @@ export default function Pricing({ onStart }: PricingProps) {
               <ul className="mt-6 space-y-3">
                 {pkg.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-sm">
-                    <svg
+                    <Check
                       className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
-                        pkg.highlighted ? 'text-blue-400' : 'text-blue-600'
+                        pkg.highlighted ? 'text-primary-foreground' : 'text-primary'
                       }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                    />
                     <span
                       className={
-                        pkg.highlighted ? 'text-slate-200' : 'text-slate-600'
+                        pkg.highlighted ? 'text-primary-foreground/90' : 'text-muted-foreground'
                       }
                     >
                       {feature}
@@ -95,16 +88,13 @@ export default function Pricing({ onStart }: PricingProps) {
                   </li>
                 ))}
               </ul>
-              <button
+              <Button
                 onClick={onStart}
-                className={`mt-6 w-full rounded-lg py-2.5 text-sm font-semibold transition-colors ${
-                  pkg.highlighted
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-                }`}
+                variant={pkg.highlighted ? 'secondary' : 'outline'}
+                className="mt-6 w-full"
               >
                 {pkg.name === '免费体验' ? '免费试用' : '立即购买'}
-              </button>
+              </Button>
             </div>
           ))}
         </div>

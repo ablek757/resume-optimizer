@@ -2,6 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, FileText, Star, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
+import { useToast } from '@/components/ui/toast';
 
 interface ResumeVersion {
   id: string;
@@ -24,6 +38,7 @@ const SOURCE_TEXT: Record<string, string> = {
 };
 
 export default function ResumesPage() {
+  const { toast } = useToast();
   const [versions, setVersions] = useState<ResumeVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,7 +72,10 @@ export default function ResumesPage() {
           resume: version.originalText || '',
         })
       );
-      localStorage.setItem('resume_optimizer_loaded_version', JSON.stringify(version));
+      localStorage.setItem(
+        'resume_optimizer_loaded_version',
+        JSON.stringify(version)
+      );
     } catch (err) {
       console.error('Save draft error:', err);
     }
@@ -78,7 +96,7 @@ export default function ResumesPage() {
         prev.map((v) => ({ ...v, isDefault: v.id === id }))
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : '设置默认失败');
+      toast(err instanceof Error ? err.message : '设置默认失败', 'error');
     }
   };
 
@@ -100,25 +118,29 @@ export default function ResumesPage() {
         throw new Error(data.error || '保存失败');
       }
       setVersions((prev) =>
-        prev.map((v) => (v.id === id ? { ...v, title: editTitle.trim() } : v))
+        prev.map((v) =>
+          v.id === id ? { ...v, title: editTitle.trim() } : v
+        )
       );
       setEditingId(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '保存失败');
+      toast(err instanceof Error ? err.message : '保存失败', 'error');
     }
   };
 
   const deleteVersion = async (id: string) => {
     if (!confirm('确定删除这个简历版本吗？')) return;
     try {
-      const res = await fetch(`/api/resume-versions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/resume-versions/${id}`, {
+        method: 'DELETE',
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || '删除失败');
       }
       setVersions((prev) => prev.filter((v) => v.id !== id));
     } catch (err) {
-      alert(err instanceof Error ? err.message : '删除失败');
+      toast(err instanceof Error ? err.message : '删除失败', 'error');
     }
   };
 
@@ -128,133 +150,145 @@ export default function ResumesPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+      <div className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">简历版本管理</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              保存多个岗位方向的简历，随时切换、编辑和导出
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+    <div className="space-y-6">
+      <PageHeader
+        title="简历版本管理"
+        description="保存多个岗位方向的简历，随时切换、编辑和导出"
+      >
+        <Link href="/">
+          <Button variant="outline">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
             返回首页
-          </Link>
+          </Button>
+        </Link>
+      </PageHeader>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {versions.length === 0 ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-slate-200">
-            <p className="text-slate-500">暂无保存的简历版本</p>
-            <Link
-              href="/"
-              className="mt-4 inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              去优化简历 →
+      {versions.length === 0 ? (
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle>暂无保存的简历版本</CardTitle>
+            <CardDescription>
+              优化简历后可以将结果保存为版本，方便多岗位管理
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/">
+              <Button>去优化简历 →</Button>
             </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {versions.map((version) => (
-              <div
-                key={version.id}
-                className={`rounded-2xl bg-white p-5 shadow-sm ring-1 transition-colors ${
-                  version.isDefault ? 'ring-blue-300' : 'ring-slate-200'
-                }`}
-              >
-                <div className="mb-3 flex items-start justify-between gap-2">
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {versions.map((version) => (
+            <Card
+              key={version.id}
+              className={version.isDefault ? 'border-2 border-primary' : ''}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
                   {editingId === version.id ? (
                     <div className="flex flex-1 items-center gap-2">
-                      <input
-                        type="text"
+                      <Input
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') saveTitle(version.id);
                           if (e.key === 'Escape') setEditingId(null);
                         }}
+                        className="h-8 text-sm"
                       />
-                      <button
+                      <Button
+                        size="sm"
                         onClick={() => saveTitle(version.id)}
-                        className="text-xs text-blue-600 hover:text-blue-700"
                       >
                         保存
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex-1">
-                      <h3
-                        className="cursor-pointer font-semibold text-slate-900 hover:text-blue-600"
+                    <div className="flex-1 min-w-0">
+                      <CardTitle
+                        className="cursor-pointer hover:text-primary"
                         onClick={() => startEdit(version)}
                         title="点击修改标题"
                       >
                         {version.title}
-                      </h3>
-                      <p className="mt-0.5 text-xs text-slate-500">{version.jobTitle}</p>
+                      </CardTitle>
+                      <CardDescription>{version.jobTitle}</CardDescription>
                     </div>
                   )}
                   {version.isDefault && (
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    <Badge variant="default">
+                      <Star className="mr-1 h-3 w-3" />
                       默认
-                    </span>
+                    </Badge>
                   )}
                 </div>
+              </CardHeader>
 
-                <div className="mb-4 space-y-1 text-xs text-slate-500">
-                  <p>
-                    来源：
-                    <span className="font-medium text-slate-700">
-                      {SOURCE_TEXT[version.source] || version.source}
-                    </span>
-                  </p>
-                  <p>更新于：{formatDate(version.updatedAt)}</p>
-                </div>
+              <CardContent className="space-y-1 text-sm text-muted-foreground">
+                <p>
+                  来源：
+                  <span className="font-medium text-foreground">
+                    {SOURCE_TEXT[version.source] || version.source}
+                  </span>
+                </p>
+                <p>更新于：{formatDate(version.updatedAt)}</p>
+              </CardContent>
 
+              <CardContent className="pt-0">
                 <div className="flex flex-wrap gap-2">
-                  <Link
-                    href="/"
-                    onClick={() => loadToEditor(version)}
-                    className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                  >
-                    加载到编辑器
-                  </Link>
+                  <Button asChild size="sm">
+                    <Link
+                      href="/"
+                      onClick={() => loadToEditor(version)}
+                    >
+                      <FileText className="mr-1.5 h-4 w-4" />
+                      加载到编辑器
+                    </Link>
+                  </Button>
                   {!version.isDefault && (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setDefault(version.id)}
-                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                       设为默认
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-destructive hover:bg-destructive/10"
                     onClick={() => deleteVersion(version.id)}
-                    className="ml-auto rounded-md px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
                   >
+                    <Trash2 className="mr-1.5 h-4 w-4" />
                     删除
-                  </button>
+                  </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

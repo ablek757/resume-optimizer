@@ -3,15 +3,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Mic2 } from 'lucide-react';
 import InterviewChat, { ChatMessage } from '@/components/interview-chat';
-
-interface User {
-  id: string;
-  email: string;
-  credits: number;
-  hasSubscription: boolean;
-  dailyFreeUses: number;
-}
+import { PageHeader } from '@/components/page-header';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useUser } from '@/hooks/use-user';
 
 interface HistoryItem {
   id: string;
@@ -23,9 +31,8 @@ interface HistoryItem {
 const FREE_DAILY_LIMIT = 3;
 
 export default function InterviewPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading: loadingUser, refresh } = useUser();
   const [histories, setHistories] = useState<HistoryItem[]>([]);
-  const [loadingUser, setLoadingUser] = useState(true);
 
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -39,21 +46,8 @@ export default function InterviewPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchUser();
     fetchHistories();
   }, []);
-
-  const fetchUser = async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      const data = await res.json();
-      if (data.user) setUser(data.user);
-    } catch (err) {
-      console.error('Fetch user error:', err);
-    } finally {
-      setLoadingUser(false);
-    }
-  };
 
   const fetchHistories = async () => {
     try {
@@ -111,7 +105,7 @@ export default function InterviewPage() {
       }
 
       setMessages([{ role: 'assistant', content: data.message }]);
-      fetchUser();
+      refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : '开始面试失败');
       setInterviewing(false);
@@ -191,208 +185,222 @@ export default function InterviewPage() {
 
   if (loadingUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+      <div className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-        <h1 className="text-2xl font-bold text-slate-900">请先登录</h1>
-        <p className="mt-2 text-slate-600">登录后使用 AI 面试模拟</p>
-        <Link
-          href="/"
-          className="mt-6 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
-        >
-          返回首页登录
-        </Link>
-      </div>
+      <Card className="mx-auto max-w-md text-center">
+        <CardHeader>
+          <CardTitle>请先登录</CardTitle>
+          <CardDescription>登录后使用 AI 面试模拟</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/">
+            <Button>返回首页登录</Button>
+          </Link>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">AI 面试模拟</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              基于简历和岗位 JD，AI 面试官陪你实战演练
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            返回首页
-          </Link>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="AI 面试模拟"
+        description="基于简历和岗位 JD，AI 面试官陪你实战演练"
+      >
+        <Link href="/">
+          <Button variant="outline">返回首页</Button>
+        </Link>
+      </PageHeader>
 
-        {!interviewing ? (
-          <div className="space-y-6">
-            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">
-                准备面试
-              </h2>
-
-              {histories.length > 0 && (
-                <div className="mb-5">
-                  <label className="block text-sm font-medium text-slate-700">
-                    从历史记录快速选择
-                  </label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {histories.map((h) => (
-                      <button
-                        key={h.id}
-                        onClick={() => selectHistory(h)}
-                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        {h.jobTitle}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    目标岗位 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={jobTitle}
-                    onChange={(e) => setJobTitle(e.target.value)}
-                    placeholder="例如：产品经理"
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    岗位 JD（可选）
-                  </label>
-                  <textarea
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="粘贴招聘要求，面试题会更精准"
-                    rows={4}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    简历内容 <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={resume}
-                    onChange={(e) => setResume(e.target.value)}
-                    placeholder="粘贴你的简历内容"
-                    rows={10}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <p className="mt-1 text-right text-xs text-slate-500">
-                    {resume.length} / 8000 字
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    面试语言
-                  </label>
-                  <select
-                    value={language}
-                    onChange={(e) =>
-                      setLanguage(e.target.value as 'zh' | 'en' | 'bilingual')
-                    }
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="zh">中文</option>
-                    <option value="en">English</option>
-                    <option value="bilingual">中英双语</option>
-                  </select>
-                </div>
-
-                <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
-                  <p className="text-sm text-slate-700">
-                    也可以{' '}
-                    <Link
-                      href="/interview/review"
-                      className="font-medium text-blue-600 hover:text-blue-700"
+      {!interviewing ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>准备面试</CardTitle>
+            <CardDescription>
+              填写岗位信息和简历内容，开始一场模拟面试
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {histories.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  从历史记录快速选择
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {histories.map((h) => (
+                    <Button
+                      key={h.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectHistory(h)}
                     >
-                      上传真实面试录音进行复盘分析 →
-                    </Link>
-                  </p>
+                      {h.jobTitle}
+                    </Button>
+                  ))}
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4">
-                  <div className="text-sm text-slate-700">
-                    {user.hasSubscription ? (
-                      <span className="font-medium text-green-600">会员有效期内可直接开始</span>
-                    ) : (
-                      <span>
-                        今日免费 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
-                        {user.credits > 0 && ` · 剩余额度 ${user.credits} 次`}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={startInterview}
-                    disabled={
-                      loading ||
-                      !jobTitle.trim() ||
-                      !resume.trim()
-                    }
-                    className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
-                  >
-                    {loading ? '准备中...' : '开始面试'}
-                  </button>
-                </div>
-
-                {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                )}
               </div>
+            )}
+
+            <div className="space-y-2">
+              <label
+                htmlFor="jobTitle"
+                className="block text-sm font-medium text-foreground"
+              >
+                目标岗位 <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="jobTitle"
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="例如：产品经理"
+              />
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-600">
-                岗位：<span className="font-medium text-slate-900">{jobTitle}</span>
-              </div>
-              {!finished && (
-                <button
-                  onClick={resetInterview}
-                  className="text-sm text-slate-500 hover:text-red-600"
+
+            <div className="space-y-2">
+              <label
+                htmlFor="jobDescription"
+                className="block text-sm font-medium text-foreground"
+              >
+                岗位 JD（可选）
+              </label>
+              <Textarea
+                id="jobDescription"
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="粘贴招聘要求，面试题会更精准"
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="resume"
+                className="block text-sm font-medium text-foreground"
+              >
+                简历内容 <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                id="resume"
+                value={resume}
+                onChange={(e) => setResume(e.target.value)}
+                placeholder="粘贴你的简历内容"
+                rows={10}
+              />
+              <p className="text-right text-xs text-muted-foreground">
+                {resume.length} / 8000 字
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="language"
+                className="block text-sm font-medium text-foreground"
+              >
+                面试语言
+              </label>
+              <Select
+                id="language"
+                value={language}
+                onChange={(e) =>
+                  setLanguage(e.target.value as 'zh' | 'en' | 'bilingual')
+                }
+              >
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="bilingual">中英双语</option>
+              </Select>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+              <Mic2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                也可以{' '}
+                <Link
+                  href="/interview/review"
+                  className="font-medium text-primary hover:text-primary/80"
                 >
-                  结束面试
-                </button>
-              )}
+                  上传真实面试录音进行复盘分析 →
+                </Link>
+              </p>
             </div>
 
-            <InterviewChat
-              messages={messages}
-              loading={loading}
-              finished={finished}
-              onSend={sendAnswer}
-              onFinish={resetInterview}
-              onReview={handleReview}
-            />
+            <div className="flex flex-col items-start justify-between gap-4 rounded-lg bg-secondary/50 p-4 sm:flex-row sm:items-center">
+              {user.hasSubscription ? (
+                <Badge variant="success">会员有效期内可直接开始</Badge>
+              ) : (
+                <Badge variant="secondary">
+                  今日免费 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
+                  {user.credits > 0 && ` · 剩余额度 ${user.credits} 次`}
+                </Badge>
+              )}
+              <Button
+                onClick={startInterview}
+                disabled={loading || !jobTitle.trim() || !resume.trim()}
+              >
+                {loading ? '准备中...' : '开始面试'}
+              </Button>
+            </div>
 
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              岗位：<span className="font-medium text-foreground">{jobTitle}</span>
+            </div>
+            {!finished && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetInterview}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                结束面试
+              </Button>
+            )}
           </div>
-        )}
-      </div>
+
+          <InterviewChat
+            messages={messages}
+            loading={loading}
+            finished={finished}
+            onSend={sendAnswer}
+            onFinish={resetInterview}
+            onReview={handleReview}
+          />
+
+          {error && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 const faqs = [
   {
@@ -34,42 +35,32 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+    <section id="faq" className="bg-muted/50 px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">常见问题</h2>
+          <h2 className="text-3xl font-bold text-foreground">常见问题</h2>
         </div>
         <div className="space-y-3">
           {faqs.map((faq, index) => (
             <div
               key={index}
-              className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+              className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-border"
             >
               <button
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
                 className="flex w-full items-center justify-between text-left"
               >
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-foreground">
                   {faq.question}
                 </span>
-                <svg
-                  className={`h-5 w-5 flex-shrink-0 text-slate-400 transition-transform ${
+                <ChevronDown
+                  className={`h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform ${
                     openIndex === index ? 'rotate-180' : ''
                   }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
+                />
               </button>
               {openIndex === index && (
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   {faq.answer}
                 </p>
               )}

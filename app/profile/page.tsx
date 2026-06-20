@@ -11,6 +11,34 @@ import {
 } from '@/lib/export';
 import { extractOptimizedResume } from '@/lib/extract-resume';
 import { computeLineDiff, DiffLine } from '@/lib/diff';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
+  History,
+  CreditCard,
+  Briefcase,
+  MessageSquare,
+  FileText,
+  Home,
+  Sparkles,
+} from 'lucide-react';
 
 interface User {
   id: string;
@@ -40,6 +68,39 @@ interface PaymentItem {
 }
 
 const FREE_DAILY_LIMIT = 3;
+
+const quickActions = [
+  {
+    href: '/interview',
+    title: 'AI 面试模拟',
+    description: '基于简历和岗位实战演练',
+    icon: MessageSquare,
+  },
+  {
+    href: '/applications',
+    title: '投递追踪',
+    description: '记录投递进度，把握求职节奏',
+    icon: Briefcase,
+  },
+  {
+    href: '/interview/review',
+    title: '面试复盘',
+    description: '上传录音，AI 分析面试表现',
+    icon: FileText,
+  },
+  {
+    href: '/resumes',
+    title: '简历版本',
+    description: '管理多个岗位方向的简历',
+    icon: History,
+  },
+  {
+    href: '/',
+    title: '继续优化简历',
+    description: '上传简历，获取 AI 优化建议',
+    icon: Sparkles,
+  },
+];
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -167,312 +228,298 @@ export default function ProfilePage() {
     return '待审核';
   };
 
+  const getStatusVariant = (status: string): React.ComponentProps<typeof Badge>['variant'] => {
+    if (status === 'approved') return 'success';
+    if (status === 'rejected') return 'destructive';
+    return 'warning';
+  };
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <Skeleton className="h-10 w-56" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-40" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <Skeleton className="h-96 lg:col-span-2" />
+          <Skeleton className="h-96" />
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-        <h1 className="text-2xl font-bold text-slate-900">请先登录</h1>
-        <p className="mt-2 text-slate-600">登录后查看个人中心和历史记录</p>
-        <Link
-          href="/"
-          className="mt-6 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
-        >
-          返回首页
-        </Link>
+      <div className="flex items-center justify-center py-12">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle>请先登录</CardTitle>
+            <CardDescription>登录后查看个人中心和历史记录</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/">返回首页登录</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">个人中心</h1>
-          <Link
-            href="/"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        title="个人中心"
+        description="管理账户信息、查看优化历史与订单"
+      >
+        <Button asChild variant="outline" size="sm">
+          <Link href="/">
+            <Home className="h-4 w-4" />
             返回首页
           </Link>
-        </div>
+        </Button>
+      </PageHeader>
 
-        {/* Quick Actions */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Link
-            href="/interview"
-            className="rounded-2xl bg-blue-50 p-5 ring-1 ring-blue-100 transition-colors hover:bg-blue-100"
-          >
-            <p className="font-semibold text-blue-800">AI 面试模拟</p>
-            <p className="mt-1 text-xs text-blue-600">基于简历和岗位实战演练</p>
+      {/* Quick Actions */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {quickActions.map((action) => (
+          <Link key={action.href} href={action.href} className="block">
+            <Card className="h-full transition-colors hover:bg-accent">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <action.icon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="mt-3 font-semibold text-foreground">{action.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>
+              </CardContent>
+            </Card>
           </Link>
-          <Link
-            href="/applications"
-            className="rounded-2xl bg-green-50 p-5 ring-1 ring-green-100 transition-colors hover:bg-green-100"
-          >
-            <p className="font-semibold text-green-800">投递追踪</p>
-            <p className="mt-1 text-xs text-green-600">记录投递进度，把握求职节奏</p>
-          </Link>
-          <Link
-            href="/interview/review"
-            className="rounded-2xl bg-purple-50 p-5 ring-1 ring-purple-100 transition-colors hover:bg-purple-100"
-          >
-            <p className="font-semibold text-purple-800">面试复盘</p>
-            <p className="mt-1 text-xs text-purple-600">上传录音，AI 分析面试表现</p>
-          </Link>
-          <Link
-            href="/resumes"
-            className="rounded-2xl bg-indigo-50 p-5 ring-1 ring-indigo-100 transition-colors hover:bg-indigo-100"
-          >
-            <p className="font-semibold text-indigo-800">简历版本</p>
-            <p className="mt-1 text-xs text-indigo-600">管理多个岗位方向的简历</p>
-          </Link>
-          <Link
-            href="/"
-            className="rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
-          >
-            <p className="font-semibold text-slate-800">继续优化简历</p>
-            <p className="mt-1 text-xs text-slate-600">上传简历，获取 AI 优化建议</p>
-          </Link>
-        </div>
+        ))}
+      </div>
 
-        {/* User Info */}
-        <div className="mb-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">我的账户</h2>
+      {/* User Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            我的账户
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">邮箱</p>
-              <p className="mt-1 font-medium text-slate-900">{user.email}</p>
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm text-muted-foreground">邮箱</p>
+              <p className="mt-1 font-medium text-foreground">{user.email}</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">今日免费</p>
-              <p className="mt-1 font-medium text-slate-900">
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm text-muted-foreground">今日免费</p>
+              <p className="mt-1 font-medium text-foreground">
                 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
               </p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">剩余额度</p>
-              <p className="mt-1 font-medium text-slate-900">{user.credits} 次</p>
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm text-muted-foreground">剩余额度</p>
+              <p className="mt-1 font-medium text-foreground">{user.credits} 次</p>
             </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">会员状态</p>
-              <p className="mt-1 font-medium text-slate-900">
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm text-muted-foreground">会员状态</p>
+              <p className="mt-1 font-medium text-foreground">
                 {user.hasSubscription
                   ? `有效期至 ${new Date(user.subscriptionEndsAt!).toLocaleDateString('zh-CN')}`
                   : '未开通'}
               </p>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* History List */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">优化历史</h2>
-              <div className="flex items-center gap-2">
-                {compareMode && selectedIds.length === 2 && (
-                  <button
-                    onClick={startCompare}
-                    className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                  >
-                    对比选中
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setCompareMode((v) => !v);
-                    setSelectedIds([]);
-                  }}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                    compareMode
-                      ? 'bg-slate-200 text-slate-800'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {compareMode ? '退出对比' : '对比模式'}
-                </button>
-              </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* History List */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              优化历史
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {compareMode && selectedIds.length === 2 && (
+                <Button size="sm" onClick={startCompare}>
+                  对比选中
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant={compareMode ? 'secondary' : 'outline'}
+                onClick={() => {
+                  setCompareMode((v) => !v);
+                  setSelectedIds([]);
+                }}
+              >
+                {compareMode ? '退出对比' : '对比模式'}
+              </Button>
             </div>
-
+          </CardHeader>
+          <CardContent>
             {histories.length === 0 ? (
-              <div className="rounded-xl bg-slate-50 py-12 text-center">
-                <p className="text-slate-500">暂无优化记录</p>
-                <Link
-                  href="/"
-                  className="mt-3 inline-block text-sm text-blue-600 hover:text-blue-700"
-                >
-                  去优化简历 →
-                </Link>
+              <div className="rounded-lg bg-muted py-12 text-center">
+                <p className="text-muted-foreground">暂无优化记录</p>
+                <Button asChild variant="link" size="sm" className="mt-2">
+                  <Link href="/">去优化简历 →</Link>
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
                 {histories.map((history) => (
-                  <div
+                  <Card
                     key={history.id}
-                    className={`rounded-xl border p-4 transition-colors ${
+                    className={`transition-colors ${
                       selectedHistory?.id === history.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                        ? 'border-primary bg-primary/5'
+                        : 'hover:bg-accent/50'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      {compareMode && (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(history.id)}
-                          onChange={() => toggleCompareSelection(history.id)}
-                          className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      )}
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => !compareMode && setSelectedHistory(history)}
-                      >
-                        <h3 className="font-medium text-slate-900">
-                          {history.jobTitle}
-                        </h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-                          {history.originalText || '未填写原始简历'}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                          {formatDate(history.createdAt)}
-                        </p>
-                      </div>
-                      {!compareMode && (
-                        <div className="flex flex-col items-end gap-2">
-                          <Link
-                            href="/interview"
-                            className="text-sm text-blue-600 hover:text-blue-700"
-                          >
-                            模拟面试
-                          </Link>
-                          <button
-                            onClick={() => deleteHistory(history.id)}
-                            className="text-sm text-red-500 hover:text-red-700"
-                          >
-                            删除
-                          </button>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        {compareMode && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(history.id)}
+                            onChange={() => toggleCompareSelection(history.id)}
+                            className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary focus:ring-ring"
+                          />
+                        )}
+                        <div
+                          className="flex-1 cursor-pointer"
+                          onClick={() => !compareMode && setSelectedHistory(history)}
+                        >
+                          <h3 className="font-medium text-foreground">{history.jobTitle}</h3>
+                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                            {history.originalText || '未填写原始简历'}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {formatDate(history.createdAt)}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                        {!compareMode && (
+                          <div className="flex flex-col items-end gap-1">
+                            <Button asChild variant="link" size="sm" className="h-auto p-0">
+                              <Link href="/interview">模拟面试</Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => deleteHistory(history.id)}
+                            >
+                              删除
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Orders */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">我的订单</h2>
+        {/* Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              我的订单
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             {payments.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500">暂无订单</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">暂无订单</p>
             ) : (
               <div className="space-y-3">
                 {payments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="rounded-xl border border-slate-200 p-3"
+                    className="rounded-lg border border-border p-3"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-foreground">
                         {payment.packageName || '未知套餐'}
                       </span>
-                      <span
-                        className={`text-xs ${
-                          payment.status === 'approved'
-                            ? 'text-green-600'
-                            : payment.status === 'rejected'
-                            ? 'text-red-600'
-                            : 'text-yellow-600'
-                        }`}
-                      >
+                      <Badge variant={getStatusVariant(payment.status)}>
                         {getStatusText(payment.status)}
-                      </span>
+                      </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {payment.amount !== null ? `¥${payment.amount}` : '待确认'}
                     </p>
                     {payment.redemptionCode && (
-                      <p className="mt-1 font-mono text-xs text-green-700">
+                      <p className="mt-1 font-mono text-xs text-success">
                         兑换码：{payment.redemptionCode.code}
                       </p>
                     )}
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {formatDate(payment.createdAt)}
                     </p>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Compare Modal */}
       {comparePair && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">历史版本对比</h3>
-                <p className="text-xs text-slate-500">
-                  仅对比「优化版简历」部分，绿色为新增，红色为删除
-                </p>
-              </div>
-              <button
-                onClick={closeCompare}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
-              <div className="mb-4 grid grid-cols-2 gap-4 text-sm font-medium text-slate-700">
+        <Dialog open={true} onOpenChange={(open) => !open && closeCompare()}>
+          <DialogContent>
+            <DialogClose onClose={closeCompare} />
+            <DialogHeader>
+              <DialogTitle>历史版本对比</DialogTitle>
+              <DialogDescription>
+                仅对比「优化版简历」部分，绿色为新增，红色为删除
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto">
+              <div className="mb-4 grid grid-cols-2 gap-4 text-sm font-medium text-foreground">
                 <div>
                   {comparePair[0].jobTitle}{' '}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {formatDate(comparePair[0].createdAt)}
                   </span>
                 </div>
                 <div>
                   {comparePair[1].jobTitle}{' '}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {formatDate(comparePair[1].createdAt)}
                   </span>
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-slate-200">
+              <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-sm">
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border">
                     {diffLines.map((line, idx) => (
                       <tr
                         key={idx}
                         className={
                           line.type === 'add'
-                            ? 'bg-green-50'
+                            ? 'bg-success/10'
                             : line.type === 'remove'
-                            ? 'bg-red-50'
+                            ? 'bg-destructive/10'
                             : line.type === 'change'
-                            ? 'bg-yellow-50'
-                            : 'bg-white'
+                            ? 'bg-warning/10'
+                            : 'bg-background'
                         }
                       >
-                        <td className="w-1/2 whitespace-pre-wrap border-r border-slate-100 px-3 py-1.5 text-slate-800">
+                        <td className="w-1/2 whitespace-pre-wrap border-r border-border px-3 py-1.5 text-foreground">
                           {line.left ?? ''}
                         </td>
-                        <td className="w-1/2 whitespace-pre-wrap px-3 py-1.5 text-slate-800">
+                        <td className="w-1/2 whitespace-pre-wrap px-3 py-1.5 text-foreground">
                           {line.right ?? ''}
                         </td>
                       </tr>
@@ -481,71 +528,56 @@ export default function ProfilePage() {
                 </table>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* History Detail Modal */}
       {selectedHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {selectedHistory.jobTitle}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {formatDate(selectedHistory.createdAt)}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedHistory(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
+        <Dialog
+          open={true}
+          onOpenChange={(open) => !open && setSelectedHistory(null)}
+        >
+          <DialogContent>
+            <DialogClose onClose={() => setSelectedHistory(null)} />
+            <DialogHeader>
+              <DialogTitle>{selectedHistory.jobTitle}</DialogTitle>
+              <DialogDescription>{formatDate(selectedHistory.createdAt)}</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto">
               {copyMessage && (
-                <p className="mb-3 text-sm text-green-600">{copyMessage}</p>
+                <p className="mb-3 text-sm font-medium text-success">{copyMessage}</p>
               )}
 
               <div className="mb-4 flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleCopy(selectedHistory.result)}
-                  className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(selectedHistory!.result)}
                 >
                   复制
-                </button>
-                <button
-                  onClick={() => downloadMarkdown(selectedHistory.result, '简历优化结果')}
-                  className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadMarkdown(selectedHistory!.result, '简历优化结果')}
                 >
                   Markdown
-                </button>
-                <button
-                  onClick={handleExportWord}
-                  className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                >
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleExportWord}>
                   Word
-                </button>
-                <button
-                  onClick={handleExportPDF}
-                  className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                >
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleExportPDF}>
                   PDF
-                </button>
+                </Button>
               </div>
 
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-5">
-                <MarkdownRenderer ref={resultRef} content={selectedHistory.result} />
+              <div className="rounded-lg border border-border bg-muted p-5">
+                <MarkdownRenderer ref={resultRef} content={selectedHistory!.result} />
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

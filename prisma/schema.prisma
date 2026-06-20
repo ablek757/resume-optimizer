@@ -109,3 +109,14 @@ model ResumeVersion {
   @@index([userId])
   @@index([isDefault])
 }
+
+model UserDraft {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  jobTitle        String?
+  jobDescription  String?
+  resume          String?
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}

@@ -59,25 +59,25 @@ const features = [
 
 export default function Features() {
   return (
-    <section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+    <section id="features" className="bg-background px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">为什么选择我们</h2>
-          <p className="mt-4 text-slate-600">专为求职者打造的 AI 简历优化工具</p>
+          <h2 className="text-3xl font-bold text-foreground">为什么选择我们</h2>
+          <p className="mt-4 text-muted-foreground">专为求职者打造的 AI 简历优化工具</p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="rounded-2xl bg-slate-50 p-6 transition-colors hover:bg-blue-50"
+              className="rounded-2xl bg-card p-6 transition-colors hover:bg-accent border border-border"
             >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                 {feature.icon}
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-slate-900">
+              <h3 className="mb-2 text-lg font-semibold text-foreground">
                 {feature.title}
               </h3>
-              <p className="text-sm leading-relaxed text-slate-600">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {feature.description}
               </p>
             </div>

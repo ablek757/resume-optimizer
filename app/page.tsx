@@ -28,6 +28,8 @@ import Steps from '@/components/landing/steps';
 import Pricing from '@/components/landing/pricing';
 import FAQ from '@/components/landing/faq';
 import CTA from '@/components/landing/cta';
+import LandingHeader from '@/components/landing/header';
+import { Button } from '@/components/ui/button';
 
 interface User {
   id: string;
@@ -132,6 +134,19 @@ export default function Home() {
   // Abort controller for stopping generation
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Refs to read latest draft values in callbacks without stale closures
+  const userRef = useRef<User | null>(user);
+  const jobTitleRef = useRef(jobTitle);
+  const jobDescriptionRef = useRef(jobDescription);
+  const resumeRef = useRef(resume);
+
+  useEffect(() => {
+    userRef.current = user;
+    jobTitleRef.current = jobTitle;
+    jobDescriptionRef.current = jobDescription;
+    resumeRef.current = resume;
+  }, [user, jobTitle, jobDescription, resume]);
+
   const { show: showOnboarding, close: closeOnboarding } = useOnboarding();
 
   const fetchUser = async () => {
@@ -144,7 +159,39 @@ export default function Home() {
     }
   };
 
-  const handleLoadVersion = (version: {
+  const saveDraft = useCallback(() => {
+    const currentUser = userRef.current;
+    const currentJobTitle = jobTitleRef.current;
+    const currentJobDescription = jobDescriptionRef.current;
+    const currentResume = resumeRef.current;
+
+    if (currentUser) {
+      fetch('/api/user/draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: currentJobTitle,
+          jobDescription: currentJobDescription,
+          resume: currentResume,
+        }),
+      }).catch((err) => console.error('Save cloud draft error:', err));
+    } else {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            jobTitle: currentJobTitle,
+            jobDescription: currentJobDescription,
+            resume: currentResume,
+          })
+        );
+      } catch (err) {
+        console.error('Save draft error:', err);
+      }
+    }
+  }, []);
+
+  const handleLoadVersion = useCallback((version: {
     jobTitle: string;
     jobDescription: string;
     resume: string;
@@ -161,53 +208,71 @@ export default function Home() {
       setResult('');
       setResultTab('report');
     }
+    saveDraft();
     try {
-      localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({
-          jobTitle: version.jobTitle,
-          jobDescription: version.jobDescription,
-          resume: version.resume,
-        })
-      );
       localStorage.removeItem('resume_optimizer_loaded_version');
     } catch (err) {
-      console.error('Save draft error:', err);
+      console.error('Remove loaded version error:', err);
     }
-  };
+  }, [saveDraft]);
 
   useEffect(() => {
-    fetchUser();
-    try {
-      const loaded = localStorage.getItem('resume_optimizer_loaded_version');
-      if (loaded) {
-        const version = JSON.parse(loaded);
-        handleLoadVersion(version);
+    const init = async () => {
+      await fetchUser();
+      try {
+        const loaded = localStorage.getItem('resume_optimizer_loaded_version');
+        if (loaded) {
+          const version = JSON.parse(loaded);
+          handleLoadVersion(version);
+          return;
+        }
+      } catch (err) {
+        console.error('Load version error:', err);
       }
-    } catch (err) {
-      console.error('Load version error:', err);
-    }
-  }, []);
+
+      try {
+        const res = await fetch('/api/user/draft');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.draft) {
+            const { jobTitle: dJobTitle, jobDescription: dJobDescription, resume: dResume } = data.draft;
+            if (dJobTitle || dJobDescription || dResume) {
+              setJobTitle(typeof dJobTitle === 'string' ? dJobTitle : '');
+              setJobDescription(typeof dJobDescription === 'string' ? dJobDescription : '');
+              setResume(typeof dResume === 'string' ? dResume : '');
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Fetch cloud draft error:', err);
+      }
+
+      // Fall back to localStorage draft for guests or when cloud draft is empty
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          setJobTitle(typeof draft.jobTitle === 'string' ? draft.jobTitle : '');
+          setJobDescription(typeof draft.jobDescription === 'string' ? draft.jobDescription : '');
+          setResume(typeof draft.resume === 'string' ? draft.resume : '');
+        }
+      } catch (err) {
+        console.error('Load local draft error:', err);
+      }
+    };
+
+    init();
+  }, [handleLoadVersion]);
 
   // Auto save draft
   useEffect(() => {
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          DRAFT_KEY,
-          JSON.stringify({
-            jobTitle,
-            jobDescription,
-            resume,
-          })
-        );
-      } catch (err) {
-        console.error('Save draft error:', err);
-      }
-    }, 800);
+      saveDraft();
+    }, 1000);
 
     return () => clearTimeout(timer);
-  }, [jobTitle, jobDescription, resume]);
+  }, [jobTitle, jobDescription, resume, saveDraft]);
 
   // Extract editable resume section when result arrives
   useEffect(() => {
@@ -220,11 +285,6 @@ export default function Home() {
 
   const scrollToEditor = () => {
     editorRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
   };
 
   const handleRedeem = async () => {
@@ -375,6 +435,11 @@ export default function Home() {
     setJobDescription('');
     setResume('');
     setUploadedFileName('');
+    if (userRef.current) {
+      fetch('/api/user/draft', { method: 'DELETE' }).catch((err) =>
+        console.error('Clear cloud draft error:', err)
+      );
+    }
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch (err) {
@@ -549,11 +614,7 @@ export default function Home() {
       }
 
       // Optimization completed: clear draft and refresh user info
-      try {
-        localStorage.removeItem(DRAFT_KEY);
-      } catch (err) {
-        console.error('Clear draft after success error:', err);
-      }
+      clearDraft();
       fetchUser();
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -709,7 +770,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
@@ -728,6 +789,7 @@ export default function Home() {
       )}
 
       {/* Landing Page */}
+      <LandingHeader onLogin={() => setAuthModalOpen(true)} />
       <Hero onStart={scrollToEditor} />
       <Features />
       <Steps />
@@ -736,87 +798,16 @@ export default function Home() {
       <CTA onStart={scrollToEditor} />
 
       {/* Editor Section */}
-      <div ref={editorRef} className="bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+      <div ref={editorRef} className="bg-muted/50 px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl">
-          {/* Header + User Bar */}
-          <div className="mb-8">
-            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-              <div className="text-center sm:text-left">
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                  AI 简历优化
-                </h2>
-                <p className="mt-2 text-base text-slate-600">
-                  上传简历 PDF/图片，或粘贴文字，AI 帮你生成优化版简历和面试建议
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {user ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="text-sm text-slate-700">{user.email}</div>
-                    <div className="text-xs text-slate-500">
-                      {user.hasSubscription ? (
-                        <span className="font-medium text-green-600">会员有效期内无限次</span>
-                      ) : (
-                        <span>
-                          今日免费 {getRemainingFree()}/{FREE_DAILY_LIMIT} 次
-                          {user.credits > 0 && ` · 额度 ${user.credits} 次`}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Link
-                        href="/interview"
-                        className="text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        面试模拟
-                      </Link>
-                      <Link
-                        href="/applications"
-                        className="text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        投递追踪
-                      </Link>
-                      <Link
-                        href="/resumes"
-                        className="text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        简历版本
-                      </Link>
-                      <Link
-                        href="/profile"
-                        className="text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        个人中心
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="text-xs text-slate-400 hover:text-slate-600"
-                      >
-                        退出登录
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setAuthModalOpen(true)}
-                    className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-                  >
-                    登录 / 注册
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Input Form */}
-            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-2xl bg-card p-6 shadow-sm ring-1 ring-border">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label
                     htmlFor="jobTitle"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-foreground"
                   >
                     目标岗位 <span className="text-red-500">*</span>
                   </label>
@@ -826,7 +817,7 @@ export default function Home() {
                     value={jobTitle}
                     onChange={(e) => setJobTitle(e.target.value)}
                     placeholder="例如：产品经理、Java 后端开发、新媒体运营"
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 block w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
                     required
                   />
                 </div>
@@ -834,7 +825,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="language"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-foreground"
                   >
                     输出语言
                   </label>
@@ -844,7 +835,7 @@ export default function Home() {
                     onChange={(e) =>
                       setLanguage(e.target.value as 'zh' | 'en' | 'bilingual')
                     }
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 block w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="zh">中文</option>
                     <option value="en">English</option>
@@ -855,7 +846,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="jobDescription"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-foreground"
                   >
                     岗位 JD（可选）
                   </label>
@@ -865,7 +856,7 @@ export default function Home() {
                     onChange={(e) => setJobDescription(e.target.value)}
                     placeholder="粘贴招聘要求，优化会更精准"
                     rows={4}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 block w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   {user && (
                     <div className="mt-2 flex justify-end">
@@ -943,7 +934,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="resume"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-foreground"
                   >
                     简历内容 <span className="text-red-500">*</span>
                   </label>
@@ -953,7 +944,7 @@ export default function Home() {
                     onChange={(e) => setResume(e.target.value)}
                     placeholder="粘贴你的简历内容，或上传 PDF/图片自动提取"
                     rows={12}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="mt-1 block w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
                     required
                   />
                   <p className="mt-1 text-right text-xs text-slate-500">
@@ -962,13 +953,14 @@ export default function Home() {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
+                  <Button
                     type="submit"
+                    size="lg"
+                    className="w-full"
                     disabled={loading || !jobTitle.trim() || !resume.trim()}
-                    className="flex-1 rounded-lg bg-blue-600 px-5 py-3 text-center text-base font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                   >
                     {loading ? '优化中，请稍候...' : '开始优化'}
-                  </button>
+                  </Button>
                   <button
                     type="button"
                     onClick={handleQuickDiagnose}

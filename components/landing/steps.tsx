@@ -25,23 +25,23 @@ const steps = [
 
 export default function Steps() {
   return (
-    <section className="bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+    <section id="steps" className="bg-muted/50 px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">四步搞定简历优化</h2>
-          <p className="mt-4 text-slate-600">简单快捷，不用学习任何复杂操作</p>
+          <h2 className="text-3xl font-bold text-foreground">四步搞定简历优化</h2>
+          <p className="mt-4 text-muted-foreground">简单快捷，不用学习任何复杂操作</p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((item) => (
             <div key={item.step} className="relative">
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <div className="mb-4 text-3xl font-black text-blue-200">
+              <div className="rounded-2xl bg-card p-6 shadow-sm ring-1 ring-border">
+                <div className="mb-4 text-3xl font-black text-primary/20">
                   {item.step}
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
                   {item.title}
                 </h3>
-                <p className="text-sm text-slate-600">{item.description}</p>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
             </div>
           ))}

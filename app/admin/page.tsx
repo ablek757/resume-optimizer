@@ -2,6 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { DEFAULT_PACKAGES } from '@/lib/payment';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
+import { useToast } from '@/components/ui/toast';
+import {
+  Shield,
+  LogOut,
+  LayoutDashboard,
+  BarChart3,
+  Receipt,
+  KeyRound,
+  Users,
+  AlertCircle,
+} from 'lucide-react';
 
 interface User {
   id: string;
@@ -66,6 +91,7 @@ interface Analytics {
 }
 
 export default function AdminPage() {
+  const { toast } = useToast();
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
@@ -193,7 +219,7 @@ export default function AdminPage() {
       setCreatedCodes(data.codes);
       fetchCodes();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '创建失败');
+      toast(err instanceof Error ? err.message : '创建失败', 'error');
     }
   };
 
@@ -227,7 +253,7 @@ export default function AdminPage() {
       fetchPayments();
       fetchCodes();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
+      toast(err instanceof Error ? err.message : '操作失败', 'error');
     } finally {
       setPaymentActionLoading(null);
     }
@@ -240,116 +266,128 @@ export default function AdminPage() {
 
   const getStatusBadge = (status: string) => {
     if (status === 'approved') {
-      return <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">已通过</span>;
+      return <Badge variant="success">已通过</Badge>;
     }
     if (status === 'rejected') {
-      return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">已拒绝</span>;
+      return <Badge variant="destructive">已拒绝</Badge>;
     }
-    return <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">待审核</span>;
+    return <Badge variant="warning">待审核</Badge>;
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-          <h1 className="mb-2 text-2xl font-bold text-slate-900">管理后台</h1>
-          <p className="mb-6 text-sm text-slate-600">请输入管理员密码</p>
-
-          <div className="space-y-4">
-            <input
+      <div className="flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle>管理后台</CardTitle>
+            <CardDescription>请输入管理员密码</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && login()}
               placeholder="管理员密码"
-              className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button
-              onClick={login}
-              className="w-full rounded-lg bg-slate-900 px-5 py-3 font-medium text-white hover:bg-slate-800"
-            >
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
+            <Button onClick={login} className="w-full">
               进入后台
-            </button>
-          </div>
-        </div>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">管理后台</h1>
-          <button
-            onClick={() => setIsAuthenticated(false)}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            退出
-          </button>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="管理后台"
+        description="管理用户、订单、兑换码及查看数据看板"
+      >
+        <Button variant="outline" onClick={() => setIsAuthenticated(false)}>
+          <LogOut className="mr-2 h-4 w-4" />
+          退出
+        </Button>
+      </PageHeader>
 
-        {/* Tabs */}
-        <div className="mb-8 flex gap-2 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
-          {[
-            { key: 'overview', label: '概览' },
-            { key: 'analytics', label: '数据看板' },
-            { key: 'payments', label: '订单审核' },
-            { key: 'codes', label: '兑换码' },
-            { key: 'users', label: '用户' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as Tab)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            概览
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            数据看板
+          </TabsTrigger>
+          <TabsTrigger value="payments">
+            <Receipt className="mr-2 h-4 w-4" />
+            订单审核
+          </TabsTrigger>
+          <TabsTrigger value="codes">
+            <KeyRound className="mr-2 h-4 w-4" />
+            兑换码
+          </TabsTrigger>
+          <TabsTrigger value="users">
+            <Users className="mr-2 h-4 w-4" />
+            用户
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Overview */}
-        {activeTab === 'overview' && (
-          <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">总用户数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {stats?.totalUsers ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">兑换码总数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {stats?.totalCodes ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">已使用兑换码</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {stats?.usedCodes ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">总优化额度</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {stats?.totalOptimizations ?? '-'}
-                </p>
-              </div>
-            </div>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总用户数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {stats ? stats.totalUsers : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>兑换码总数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {stats ? stats.totalCodes : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>已使用兑换码</CardDescription>
+                <CardTitle className="text-3xl">
+                  {stats ? stats.usedCodes : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总优化额度</CardDescription>
+                <CardTitle className="text-3xl">
+                  {stats ? stats.totalOptimizations : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
 
-            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">
-                待审核订单
-              </h2>
+          <Card>
+            <CardHeader>
+              <CardTitle>待审核订单</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="max-h-96 overflow-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-slate-600">
+                  <thead className="bg-muted text-left text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2">用户</th>
                       <th className="px-3 py-2">金额</th>
@@ -357,10 +395,10 @@ export default function AdminPage() {
                       <th className="px-3 py-2">时间</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border">
                     {payments.filter((p) => p.status === 'pending').length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
+                        <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
                           暂无待审核订单
                         </td>
                       </tr>
@@ -374,7 +412,7 @@ export default function AdminPage() {
                               {payment.amount !== null ? `¥${payment.amount}` : '-'}
                             </td>
                             <td className="px-3 py-2">{getStatusBadge(payment.status)}</td>
-                            <td className="px-3 py-2 text-slate-500">
+                            <td className="px-3 py-2 text-muted-foreground">
                               {formatDate(payment.createdAt)}
                             </td>
                           </tr>
@@ -383,384 +421,381 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </>
-        )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Analytics */}
-        {activeTab === 'analytics' && (
-          <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">今日新增用户</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.today.newUsers ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">今日优化次数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.today.optimizations ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">今日收入</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  ¥{analytics ? Math.round(analytics.today.revenue) : '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">待审核订单</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.totals.pendingOrders ?? '-'}
-                </p>
-              </div>
-            </div>
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>今日新增用户</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.today.newUsers : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>今日优化次数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.today.optimizations : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>今日收入</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? `¥${Math.round(analytics.today.revenue)}` : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>待审核订单</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.totals.pendingOrders : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
 
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">总用户数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.totals.users ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">总优化次数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.totals.optimizations ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">总订单数</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {analytics?.totals.orders ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">累计收入</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  ¥{analytics ? Math.round(analytics.totals.revenue) : '-'}
-                </p>
-              </div>
-            </div>
-          </>
-        )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总用户数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.totals.users : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总优化次数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.totals.optimizations : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总订单数</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? analytics.totals.orders : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>累计收入</CardDescription>
+                <CardTitle className="text-3xl">
+                  {analytics ? `¥${Math.round(analytics.totals.revenue)}` : <Skeleton className="h-9 w-20" />}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+        </TabsContent>
 
-        {/* Payments */}
-        {activeTab === 'payments' && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">订单管理</h2>
-              <select
+        <TabsContent value="payments" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>订单管理</CardTitle>
+              <Select
                 value={paymentFilter}
                 onChange={(e) => setPaymentFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
+                className="sm:w-40"
               >
                 <option value="all">全部</option>
                 <option value="pending">待审核</option>
                 <option value="approved">已通过</option>
                 <option value="rejected">已拒绝</option>
-              </select>
-            </div>
-
-            <div className="space-y-4">
+              </Select>
+            </CardHeader>
+            <CardContent className="space-y-4">
               {payments.length === 0 ? (
-                <p className="py-8 text-center text-slate-500">暂无订单</p>
+                <p className="py-8 text-center text-muted-foreground">暂无订单</p>
               ) : (
                 payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="rounded-xl border border-slate-200 p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1 text-sm">
-                        <p>
-                          <span className="text-slate-500">用户：</span>
-                          {payment.userEmail}
-                        </p>
-                        <p>
-                          <span className="text-slate-500">金额：</span>
-                          {payment.amount !== null ? `¥${payment.amount}` : '未识别'}
-                        </p>
-                        <p>
-                          <span className="text-slate-500">套餐：</span>
-                          {payment.packageName || '-'}
-                        </p>
-                        <p>
-                          <span className="text-slate-500">状态：</span>
-                          {getStatusBadge(payment.status)}
-                        </p>
-                        {payment.redemptionCode && (
+                  <Card key={payment.id}>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1 text-sm">
                           <p>
-                            <span className="text-slate-500">发放码：</span>
-                            <span className="font-mono text-green-700">
-                              {payment.redemptionCode.code}
-                            </span>
+                            <span className="text-muted-foreground">用户：</span>
+                            {payment.userEmail}
                           </p>
-                        )}
-                        {payment.recognizedText && (
-                          <p className="max-w-xl text-xs text-slate-500">
-                            <span className="text-slate-400">识别内容：</span>
-                            {payment.recognizedText}
+                          <p>
+                            <span className="text-muted-foreground">金额：</span>
+                            {payment.amount !== null ? `¥${payment.amount}` : '未识别'}
                           </p>
-                        )}
-                        {payment.notes && (
-                          <p className="text-xs text-slate-500">
-                            <span className="text-slate-400">备注：</span>
-                            {payment.notes}
+                          <p>
+                            <span className="text-muted-foreground">套餐：</span>
+                            {payment.packageName || '-'}
                           </p>
+                          <p>
+                            <span className="text-muted-foreground">状态：</span>
+                            {getStatusBadge(payment.status)}
+                          </p>
+                          {payment.redemptionCode && (
+                            <p>
+                              <span className="text-muted-foreground">发放码：</span>
+                              <span className="font-mono text-success">
+                                {payment.redemptionCode.code}
+                              </span>
+                            </p>
+                          )}
+                          {payment.recognizedText && (
+                            <p className="max-w-xl text-xs text-muted-foreground">
+                              <span className="text-muted-foreground/70">识别内容：</span>
+                              {payment.recognizedText}
+                            </p>
+                          )}
+                          {payment.notes && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="text-muted-foreground/70">备注：</span>
+                              {payment.notes}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground/70">
+                            {formatDate(payment.createdAt)}
+                          </p>
+                        </div>
+
+                        {payment.status === 'pending' && (
+                          <div className="flex flex-col gap-2 sm:min-w-[160px]">
+                            <Select
+                              id={`pkg-${payment.id}`}
+                              defaultValue=""
+                            >
+                              <option value="" disabled>选择套餐</option>
+                              {DEFAULT_PACKAGES.map((pkg, idx) => (
+                                <option key={idx} value={idx}>
+                                  {pkg.name} · ¥{pkg.price}
+                                </option>
+                              ))}
+                            </Select>
+                            <Button
+                              onClick={() => {
+                                const select = document.getElementById(
+                                  `pkg-${payment.id}`
+                                ) as HTMLSelectElement;
+                                const idx = Number(select.value);
+                                if (isNaN(idx)) {
+                                  toast('请选择套餐', 'error');
+                                  return;
+                                }
+                                handlePaymentAction(payment.id, 'approve', idx);
+                              }}
+                              disabled={paymentActionLoading === payment.id}
+                            >
+                              {paymentActionLoading === payment.id ? '处理中...' : '通过并发卡'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handlePaymentAction(payment.id, 'reject')}
+                              disabled={paymentActionLoading === payment.id}
+                            >
+                              拒绝
+                            </Button>
+                          </div>
                         )}
-                        <p className="text-xs text-slate-400">
-                          {formatDate(payment.createdAt)}
-                        </p>
                       </div>
 
-                      {payment.status === 'pending' && (
-                        <div className="flex flex-col gap-2 sm:min-w-[160px]">
-                          <select
-                            id={`pkg-${payment.id}`}
-                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>选择套餐</option>
-                            {DEFAULT_PACKAGES.map((pkg, idx) => (
-                              <option key={idx} value={idx}>
-                                {pkg.name} · ¥{pkg.price}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => {
-                              const select = document.getElementById(
-                                `pkg-${payment.id}`
-                              ) as HTMLSelectElement;
-                              const idx = Number(select.value);
-                              if (isNaN(idx)) {
-                                alert('请选择套餐');
-                                return;
-                              }
-                              handlePaymentAction(payment.id, 'approve', idx);
-                            }}
-                            disabled={paymentActionLoading === payment.id}
-                            className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:bg-green-300"
-                          >
-                            {paymentActionLoading === payment.id ? '处理中...' : '通过并发卡'}
-                          </button>
-                          <button
-                            onClick={() => handlePaymentAction(payment.id, 'reject')}
-                            disabled={paymentActionLoading === payment.id}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-100"
-                          >
-                            拒绝
-                          </button>
+                      {payment.screenshot && (
+                        <div className="mt-3">
+                          <img
+                            src={`data:image/png;base64,${payment.screenshot}`}
+                            alt="付款截图"
+                            className="max-h-64 rounded-lg border border-border object-contain"
+                          />
                         </div>
                       )}
-                    </div>
-
-                    {payment.screenshot && (
-                      <div className="mt-3">
-                        <img
-                          src={`data:image/png;base64,${payment.screenshot}`}
-                          alt="付款截图"
-                          className="max-h-64 rounded-lg border border-slate-200 object-contain"
-                        />
-                      </div>
-                    )}
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))
               )}
-            </div>
-          </div>
-        )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Codes */}
-        {activeTab === 'codes' && (
-          <div className="grid gap-8 lg:grid-cols-3">
-            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-1">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">
-                创建兑换码
-              </h2>
-              <form onSubmit={createCodes} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    类型
-                  </label>
-                  <select
-                    value={codeType}
-                    onChange={(e) => setCodeType(e.target.value as 'credits' | 'subscription_days')}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="credits">优化次数额度</option>
-                    <option value="subscription_days">会员天数</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    数值
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={codeValue}
-                    onChange={(e) => setCodeValue(e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    {codeType === 'credits' ? '可优化次数' : '会员天数'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    数量
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={codeCount}
-                    onChange={(e) => setCodeCount(e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    有效期（天，可选）
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={codeExpiresDays}
-                    onChange={(e) => setCodeExpiresDays(e.target.value)}
-                    placeholder="不填则永久有效"
-                    className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
-                >
-                  创建兑换码
-                </button>
-              </form>
-
-              {createdCodes && (
-                <div className="mt-4 rounded-lg bg-green-50 p-4">
-                  <p className="mb-2 text-sm font-medium text-green-800">
-                    创建成功：
-                  </p>
-                  <div className="space-y-1">
-                    {createdCodes.map((code) => (
-                      <div
-                        key={code}
-                        className="select-all font-mono text-sm text-green-700"
-                      >
-                        {code}
-                      </div>
-                    ))}
+        <TabsContent value="codes" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle>创建兑换码</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={createCodes} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">类型</label>
+                    <Select
+                      value={codeType}
+                      onChange={(e) => setCodeType(e.target.value as 'credits' | 'subscription_days')}
+                    >
+                      <option value="credits">优化次数额度</option>
+                      <option value="subscription_days">会员天数</option>
+                    </Select>
                   </div>
-                </div>
-              )}
-            </div>
 
-            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">
-                兑换码列表
-              </h2>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">数值</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={codeValue}
+                      onChange={(e) => setCodeValue(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {codeType === 'credits' ? '可优化次数' : '会员天数'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">数量</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={codeCount}
+                      onChange={(e) => setCodeCount(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">有效期（天，可选）</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={codeExpiresDays}
+                      onChange={(e) => setCodeExpiresDays(e.target.value)}
+                      placeholder="不填则永久有效"
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    创建兑换码
+                  </Button>
+                </form>
+
+                {createdCodes && (
+                  <div className="mt-4 rounded-lg bg-success/10 p-4">
+                    <p className="mb-2 text-sm font-medium text-success">
+                      创建成功：
+                    </p>
+                    <div className="space-y-1">
+                      {createdCodes.map((code) => (
+                        <div
+                          key={code}
+                          className="select-all font-mono text-sm text-success"
+                        >
+                          {code}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>兑换码列表</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-96 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2">兑换码</th>
+                        <th className="px-3 py-2">类型</th>
+                        <th className="px-3 py-2">数值</th>
+                        <th className="px-3 py-2">状态</th>
+                        <th className="px-3 py-2">创建时间</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {codes.map((code) => (
+                        <tr key={code.id}>
+                          <td className="px-3 py-2 font-mono">{code.code}</td>
+                          <td className="px-3 py-2">
+                            {code.type === 'credits' ? '次数' : '会员'}
+                          </td>
+                          <td className="px-3 py-2">{code.value}</td>
+                          <td className="px-3 py-2">
+                            {code.usedBy ? (
+                              <Badge variant="secondary">已使用</Badge>
+                            ) : code.expiresAt && new Date(code.expiresAt) < new Date() ? (
+                              <Badge variant="destructive">已过期</Badge>
+                            ) : (
+                              <Badge variant="success">未使用</Badge>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {formatDate(code.createdAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>用户列表</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="max-h-96 overflow-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-slate-600">
+                  <thead className="bg-muted text-left text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2">兑换码</th>
-                      <th className="px-3 py-2">类型</th>
-                      <th className="px-3 py-2">数值</th>
-                      <th className="px-3 py-2">状态</th>
-                      <th className="px-3 py-2">创建时间</th>
+                      <th className="px-3 py-2">邮箱</th>
+                      <th className="px-3 py-2">额度</th>
+                      <th className="px-3 py-2">会员到期</th>
+                      <th className="px-3 py-2">今日免费</th>
+                      <th className="px-3 py-2">注册时间</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {codes.map((code) => (
-                      <tr key={code.id}>
-                        <td className="px-3 py-2 font-mono">{code.code}</td>
+                  <tbody className="divide-y divide-border">
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="px-3 py-2">{user.email}</td>
+                        <td className="px-3 py-2">{user.credits}</td>
                         <td className="px-3 py-2">
-                          {code.type === 'credits' ? '次数' : '会员'}
-                        </td>
-                        <td className="px-3 py-2">{code.value}</td>
-                        <td className="px-3 py-2">
-                          {code.usedBy ? (
-                            <span className="text-slate-400">已使用</span>
-                          ) : code.expiresAt && new Date(code.expiresAt) < new Date() ? (
-                            <span className="text-red-500">已过期</span>
+                          {user.subscriptionEndsAt ? (
+                            new Date(user.subscriptionEndsAt) > new Date() ? (
+                              <Badge variant="success">
+                                {formatDate(user.subscriptionEndsAt)}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">已过期</Badge>
+                            )
                           ) : (
-                            <span className="text-green-600">未使用</span>
+                            '-'
                           )}
                         </td>
-                        <td className="px-3 py-2 text-slate-500">
-                          {formatDate(code.createdAt)}
+                        <td className="px-3 py-2">
+                          {user.lastFreeUseDate === new Date().toISOString().split('T')[0]
+                            ? `${user.dailyFreeUses}/3`
+                            : '0/3'}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatDate(user.createdAt)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Users */}
-        {activeTab === 'users' && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">
-              用户列表
-            </h2>
-            <div className="max-h-96 overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2">邮箱</th>
-                    <th className="px-3 py-2">额度</th>
-                    <th className="px-3 py-2">会员到期</th>
-                    <th className="px-3 py-2">今日免费</th>
-                    <th className="px-3 py-2">注册时间</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-3 py-2">{user.email}</td>
-                      <td className="px-3 py-2">{user.credits}</td>
-                      <td className="px-3 py-2">
-                        {user.subscriptionEndsAt ? (
-                          new Date(user.subscriptionEndsAt) > new Date() ? (
-                            <span className="text-green-600">
-                              {formatDate(user.subscriptionEndsAt)}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">已过期</span>
-                          )
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {user.lastFreeUseDate === new Date().toISOString().split('T')[0]
-                          ? `${user.dailyFreeUses}/3`
-                          : '0/3'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-500">
-                        {formatDate(user.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

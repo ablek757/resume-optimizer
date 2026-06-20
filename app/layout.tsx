@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ToastProvider } from "@/components/ui/toast";
+import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AI 简历优化 - 让简历拿到更多面试",
-  description: "基于 DeepSeek AI 的智能简历优化工具，按目标岗位定制优化建议、匹配度评分和面试预测题。",
+  description:
+    "基于 DeepSeek AI 的智能简历优化工具，按目标岗位定制优化建议、匹配度评分和面试预测题。",
 };
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
@@ -28,6 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
@@ -51,7 +56,13 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider>
+          <ToastProvider>
+            <AppShell>{children}</AppShell>
+          </ToastProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
